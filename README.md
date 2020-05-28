@@ -1,5 +1,7 @@
 # ULB Sachsen-Anhalt - OCR System
 
+![Python application](https://github.com/ulb-sachsen-anhalt/ocr-pipeline/workflows/Python%20application/badge.svg)
+
 OCR-System of project "Digitalisierung historischer deutscher Zeitungen" (2019-2021). Processes large chunks of bare Imagefiles and creates for each file a correspondig OCR-Output in ALTO-XML V3 format using Open-Source Engine [Tesseract-OCR](https://github.com/tesseract-ocr/tesseract).
 
 ## Installation

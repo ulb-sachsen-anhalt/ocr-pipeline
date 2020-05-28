@@ -1,15 +1,14 @@
 # ULB Sachsen-Anhalt - OCR System
 
-OCR-System of project "Digitalisierung historischer deutscher Zeitungen" (2019-2021). Processes large chunks of bare Imagefiles and creates for each file a correspondig OCR-Output in ALTO-XML V3 format using Tesseract-OCR.
+OCR-System of project "Digitalisierung historischer deutscher Zeitungen" (2019-2021). Processes large chunks of bare Imagefiles and creates for each file a correspondig OCR-Output in ALTO-XML V3 format using Open-Source Engine [Tesseract-OCR](https://github.com/tesseract-ocr/tesseract).
 
 ## Installation
 
-Target Build and Runtime Platform: Docker Container on Ubuntu 18.04 LTS Server
+Target Build and Runtime Platform: [Docker Container](https://www.docker.com/get-started) on [Ubuntu 18.04 LTS Server](https://ubuntu.com/#download)
 
 ### Host Specifications
 
 * docker-ce (container image creation and container runtime)
-* exiftool (corrections of TIF-metadata)
 * optional: libsm6 (if OpenCV used)
 * optional: python3-venv (if Python is used outside Container, i.e. running Tests)
 * optional: gitlab-runner with shell executor for CI/CD-based workflows
@@ -29,6 +28,31 @@ The basis image contains a self-compiled version of Tesseract, cloned from <http
 ./create-image.sh ulb-tesseract 4.1.1 ulb-ocr-system 1.0.0
 => ulb-ocr-system:1.0.0
 
+```
+
+## Development
+
+### Setup
+
+For local development required to have Python3 installed (version 3.6+). For coding assistance, supply your favourite IDE with Python support. If you don't know which one to choose, I can recommend [Visual Studio Code](https://code.visualstudio.com/). The Development OS was Ubuntu 18.04, but Windows with similar Python version should to the job fine.
+
+Activate virtual Python environment and install required libraries on a Windows System:
+
+```bash
+
+# windows
+python -m venv venv
+venv\Scripts\activate.bat
+
+pip install --upgrade pip
+pip install -r requirements.txt
+
+```
+
+Afterwards, the [pytest Library](https://docs.pytest.org/en/latest/contents.html) is used to execute the current test cases from `test/test_steps.py` (with verbosity flag `v`)
+
+```bash
+pytest -v
 ```
 
 ## Execution
@@ -55,4 +79,4 @@ sudo -u ocr /<absolute-path-to>/manage-container-ocr.sh ocr-pipeline-14 14 ulb-o
 
 Logging is done via configuration file `ocr_logger_config.ini`.
 
-Adopt this file to alter provided loggers and formats.
+This file can be customized to alter provided loggers and formats.

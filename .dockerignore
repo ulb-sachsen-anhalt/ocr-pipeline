@@ -1,0 +1,11 @@
+# ignore for docker context
+__pycache__
+scandata
+tess-env
+my-ocr
+tessdata
+test
+venv
+tmp
+.git
+.vscode

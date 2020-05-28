@@ -1,0 +1,21 @@
+# ignore ide data
+.vscode
+
+# ignore pycache
+__pycache__
+.pytest_cache
+
+# ignore log file
+ocr.log
+ocr_*.log
+
+# ignore local result artifacts
+resultate
+
+# no env files
+ulb-ocr
+ocr-env
+venv
+
+# no tmp-whatever
+tmp*

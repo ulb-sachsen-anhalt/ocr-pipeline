@@ -2,7 +2,7 @@
 
 ![Python application](https://github.com/ulb-sachsen-anhalt/ocr-pipeline/workflows/Python%20application/badge.svg)
 
-OCR-System of project "Digitalisierung historischer deutscher Zeitungen" (2019-2021). Processes large chunks of bare Imagefiles and creates for each file a correspondig OCR-Output in ALTO-XML V3 format using Open-Source Engine [Tesseract-OCR](https://github.com/tesseract-ocr/tesseract).
+OCR-System of project "Digitalisierung historischer deutscher Zeitungen" (2019-2021). Processes large chunks of bare Imagefiles and creates a corresponding OCR-Output in ALTO-XML V3 format for each file using the OpenSource Engine [Tesseract-OCR](https://github.com/tesseract-ocr/tesseract).
 
 ## Installation
 
@@ -17,9 +17,9 @@ Target Build and Runtime Platform: [Docker Container](https://www.docker.com/get
 
 ### Build Image
 
-The OCR-Container is build in 2 stages.
+The OCR-Container is built in 2 stages.
 
-The basis image contains a self-compiled version of Tesseract, cloned from <https://github.com/ulb-sachsen-anhalt/tesseract> plus localisations and additional Tesseract model configuration files like `frk` and `Fraktur`. This is extend in step 2 with the actual OCR-Container, that puts the scripts in place, declares entrypoint and takes care for internal structures that can be mapped at runtime to external images, workdir and logdir folders.
+The base image contains a self-compiled version of Tesseract, cloned from <https://github.com/ulb-sachsen-anhalt/tesseract> plus localization and additional Tesseract model configuration files like `frk` and `Fraktur`. This is extended in step 2 with the actual OCR-Container. It puts the scripts in place, declares an entrypoint and takes care of internal structures that can be mapped at runtime to external images, workdir and logdir folders.
 
 ```shell
 # 1st: build base image from official Tesseract Release Tag and with desired image name
@@ -36,7 +36,7 @@ The basis image contains a self-compiled version of Tesseract, cloned from <http
 
 ### Setup
 
-For local development required to have Python3 installed (version 3.6+). For coding assistance, supply your favourite IDE with Python support. If you don't know which one to choose, I can recommend [Visual Studio Code](https://code.visualstudio.com/). The Development OS was Ubuntu 18.04, but Windows with similar Python version should to the job fine.
+For local development, an installation of Python3 (version 3.6+) is required. For coding assistance, supply your favourite IDE with Python support. If you don't know which one to choose, we recommend [Visual Studio Code](https://code.visualstudio.com/). The Development OS was Ubuntu 18.04, but Windows with similar Python version should do the job fine.
 
 Activate virtual Python environment and install required libraries on a Windows System:
 
@@ -59,13 +59,13 @@ pytest -v
 
 ## Execution
 
-The script `manage-container-ocr.sh` forms the OCR-part of a larger digitalisation pipeline which spans itself from image scanning from microfiches to delivering data towards the final presentation system of the library.
+The script `manage-container-ocr.sh` forms the OCR-part of a larger digitization pipeline which spans itself from image scanning from microfiches to delivering data towards the final presentation system of the library.
 
-It is scheduled at a fixed rate on the host. When triggered, it's searching a small marker file in a specific range of image-folders with name `meta_done`, which represents the previous stage in the workflow. After running the OCR-System, this marker file is moved on as `ocr_done`, which indicates the following step that it can go on since OCR has sucessfully finished.
+Data delivery to the host system is scheduled. When triggered, it's searching a small marker file in a specific range of image-folders with name `meta_done`, which represents the previous stage in the workflow. After running the OCR-System, this marker file is moved on as `ocr_done`, which indicates the following step to continue since OCR has sucessfully finished.
 
 ### Example CronJob Entry
 
-The script required the following parameters
+The script requires the following parameters
 
 * name of container: only one running container with this name is allowed on host
 * number of parallel executors: how many Tesseracts to run

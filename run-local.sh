@@ -4,7 +4,15 @@ set -eu
 
 ENV_NAME=venv
 
-python3 -m venv venv
+CONTAINER_NAME=language-tool
+
+if [[ $(docker ps -a) =~ ${CONTAINER_NAME} ]]; then
+    echo "[INFO] drop existing container ${CONTAINER_NAME}"
+    docker rm --force ${CONTAINER_NAME}
+fi
+
+docker run -d -p 8010:8010 --name ${CONTAINER_NAME} silviof/docker-languagetool
+
 source ./${ENV_NAME}/bin/activate
 
 # $1 => scandata_path

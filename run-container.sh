@@ -46,7 +46,7 @@ docker create --name ${CONTAINER_NAME} \
     --mount type=bind,source="${OPEN_FOLDER}",target=${CNT_SCANDATA} \
     --mount type=bind,source="${HOST_WORKDIR}",target="${CNT_OCR_WORKDIR}" \
     --mount type=bind,source="${HOST_LOGDIR}",target=${CNT_OCR_LOGDIR} \
-    ${CONTAINER_IMAGE} python3 ocr_pipeline.py -s ${CNT_SCANDATA} -w ${CNT_OCR_WORKDIR} -e ${CNT_OCR_N_EXECUTOR} -m ${TRAIN_ULB_MODEL}
+    ${CONTAINER_IMAGE} python3 ocr_pipeline.py -s ${CNT_SCANDATA} -w ${CNT_OCR_WORKDIR} -e ${CNT_OCR_N_EXECUTOR} -m ${TESSERACT_MODEL}
 
 # run
 echo "[INFO] start '${CONTAINER_NAME}' and attach to logs"

@@ -15,7 +15,8 @@ from lib.ocr_step import (
     RegexReplacement,
     StepPostReplaceCharsRegex,
     StepPostRemoveFile,
-    StepException
+    StepException,
+    StepEstimateOCR
 )
 
 
@@ -140,9 +141,9 @@ def test_step_replace():
     src = './test/resources/500_gray00003.xml'
     dict_chars = {'ſ': 's', 'ic)' : 'ich'}
     step = StepPostReplaceChars(src, dict_chars)
-    lines = ['<String ID="string_405" HPOS="831" VPOS="4906" WIDTH="246" HEIGHT="82" WC="0.96" CONTENT="geweſen"/>']
-    lines.append('<String ID="string_406" HPOS="1123" VPOS="4904" WIDTH="80" HEIGHT="78" WC="0.95" CONTENT="iſt."/>')
-    lines.append('<String ID="string_407" HPOS="1276" VPOS="4903" WIDTH="289" HEIGHT="80" WC="0.96" CONTENT="Beſtätigt"/>')
+    lines = ['<String ID="string_405" WC="0.96" CONTENT="geweſen"/>']
+    lines.append('<String ID="string_406" WC="0.95" CONTENT="iſt."/>')
+    lines.append('<String ID="string_407" WC="0.96" CONTENT="Beſtätigt"/>')
 
     # act
     step._replace(lines)
@@ -154,7 +155,28 @@ def test_step_replace():
     assert step.must_backup()
 
 
-@pytest.fixture(name='create_tmp_500_gray')
+@pytest.fixture(name='empty_ocr')
+def fixture_empty_ocr(tmpdir):
+    """create tmp data empty ALTO XML"""
+
+    path = tmpdir.mkdir("xml").join("0041.xml")
+    shutil.copyfile('./test/resources/0041.xml', path)
+    return str(path)
+
+
+def test_step_replace_with_empty_alto(empty_ocr):
+    """Determine behavior for invalid input data"""
+
+    step = StepPostReplaceChars(empty_ocr, {'ſ':'s'})
+
+    # act
+    step.execute()
+
+    # assert
+    assert not step.get_statistics()
+
+
+@pytest.fixture(name='tmp_500_gray')
 def fixture_create_tmp_500_gray(tmpdir):
     """create tmp data from file 500_gray00003.xml"""
 
@@ -163,36 +185,36 @@ def fixture_create_tmp_500_gray(tmpdir):
     return path
 
 
-def test_replaced_file_written(create_tmp_500_gray):
+def test_replaced_file_written(tmp_500_gray):
     """test replaced file written"""
 
     # arrange
     dict_chars = {'ſ': 's', 'ic)' : 'ich'}
-    step = StepPostReplaceChars(str(create_tmp_500_gray), dict_chars)
+    step = StepPostReplaceChars(str(tmp_500_gray), dict_chars)
 
     # act
     step.execute()
 
     #assert
-    check_handle = open(create_tmp_500_gray, 'r')
+    check_handle = open(tmp_500_gray, 'r')
     lines = check_handle.readlines()
     for line in lines:
         for (k, _) in dict_chars.items():
             assert k not in line
     check_handle.close()
 
-    assert os.path.exists(os.path.join(os.path.dirname(create_tmp_500_gray),
+    assert os.path.exists(os.path.join(os.path.dirname(tmp_500_gray),
                                        'input_before_StepPostReplaceChars.xml'))
-    assert not os.path.exists(os.path.join(os.path.dirname(create_tmp_500_gray),
+    assert not os.path.exists(os.path.join(os.path.dirname(tmp_500_gray),
                                            'input_before_StepPostReplaceCharsRegex.xml'))
 
 
-def test_replaced_file_statistics(create_tmp_500_gray):
+def test_replaced_file_statistics(tmp_500_gray):
     """test statistics available"""
 
     # arrange
     dict_chars = {'ſ': 's', 'ic)' : 'ich'}
-    step = StepPostReplaceChars(str(create_tmp_500_gray), dict_chars)
+    step = StepPostReplaceChars(str(tmp_500_gray), dict_chars)
 
     # act
     step.execute()
@@ -200,24 +222,24 @@ def test_replaced_file_statistics(create_tmp_500_gray):
     #assert
     expected = ['ſ:392', 'ic):6']
     assert expected == step.get_statistics()
-    assert os.path.exists(os.path.join(os.path.dirname(create_tmp_500_gray),
+    assert os.path.exists(os.path.join(os.path.dirname(tmp_500_gray),
                                        'input_before_StepPostReplaceChars.xml'))
 
 
-def test_regex_replacements(create_tmp_500_gray):
+def test_regex_replacements(tmp_500_gray):
     """check regex replacements in total"""
 
     # arrange
     regex_replacements = [RegexReplacement(r'([aeioubcglnt]3[:-]*")', '3', 's')]
-    step = StepPostReplaceCharsRegex(str(create_tmp_500_gray), regex_replacements)
+    step = StepPostReplaceCharsRegex(str(tmp_500_gray), regex_replacements)
 
     # act
     step.execute()
 
     # assert
-    assert not os.path.exists(os.path.join(os.path.dirname(str(create_tmp_500_gray)),
+    assert not os.path.exists(os.path.join(os.path.dirname(str(tmp_500_gray)),
                                            'input_before_StepPostReplaceChars.xml'))
-    with open(str(create_tmp_500_gray)) as test_handle:
+    with open(str(tmp_500_gray)) as test_handle:
         lines = test_handle.readlines()
         for line in lines:
             assert not 'u3"' in line, 'detected trailing "3" in ' + line
@@ -256,3 +278,84 @@ def test_remove_succeeded(path_tiff):
 
     #assert
     assert step.is_removed()
+
+
+def test_stepestimateocr_analyze():
+    """Analyse estimation results"""
+
+    # arrange
+    results = [
+        ('0001.tif', 14.123),
+        ('0002.tif', 18.123),
+        ('0003.tif', 28.123),
+        ('0004.tif', 38.123),
+        ('0005.tif', 40.123),
+        ('0006.tif', 41.123),
+        ('0007.tif', 51.123),
+        ('0008.tif', 60.123),
+        ('0009.tif', 68.123),
+        ('0010.tif', 68.123),
+    ]
+
+    # act
+    actual = StepEstimateOCR.analyze(results)
+
+    # assert
+    assert actual[0] == 42.723
+    assert len(actual[1]) == 5
+    assert len(actual[1][0]) == 1
+    assert len(actual[1][1]) == 2
+    assert len(actual[1][2]) == 3
+    assert len(actual[1][3]) == 1
+    assert len(actual[1][4]) == 3
+
+
+def test_estimate_handle_large_wtr():
+    """Test handle border cases and large real wtr from 1667524704_J_0116/0936.tif"""
+
+    # arrange
+    results = [
+        ('0001.tif', 0),
+        ('0002.tif', 28.123),
+        ('0003.tif', 41.123),
+        ('0004.tif', 50.123),
+        ('0936.tif', 78.571),    
+        ('0005.tif', 100.123),
+    ]
+
+    # act
+    actual = StepEstimateOCR.analyze(results)
+
+    # assert
+    assert actual[0] == 49.677
+    assert len(actual[1]) == 5
+    assert len(actual[1][0]) == 1
+    assert len(actual[1][1]) == 1
+    assert len(actual[1][2]) == 1
+    assert len(actual[1][3]) == 1
+    assert len(actual[1][4]) == 2
+
+
+def test_step_estimateocr_empty_alto(empty_ocr):
+    """Determine bahavior of stepestimator when confronted with empty alto file"""
+
+    step = StepEstimateOCR(empty_ocr, 'http://localhost:8010')
+
+    # act
+    with pytest.raises(StepException) as exec_info:
+        step.execute()
+    assert "No Textlines" in str(exec_info.value)
+
+
+def test_step_estimateocr_lines_and_tokens():
+    """Test behavior of for valid ALTO-output"""
+    
+    test_data = os.path.join('test','resources','500_gray00003.xml')
+
+    # act
+    lines = StepEstimateOCR._to_textlines(test_data)
+    (txt, n_lines, n_normalized, n_sparselines, n_lines_out) = StepEstimateOCR._get_data(lines)
+
+    assert len(lines) == 370
+    assert n_lines == 370
+    assert n_lines_out == 350

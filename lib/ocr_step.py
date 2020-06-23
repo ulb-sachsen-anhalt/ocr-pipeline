@@ -7,9 +7,22 @@ import os
 import re
 import shutil
 import subprocess
+import sys
+import xml.etree.ElementTree as ET
+
+# 3rd party import
+import requests
 
 
-class StepException(Exception): pass
+
+NAMESPACES = {'alto': 'http://www.loc.gov/standards/alto/ns-v3#'}
+
+
+
+class StepException(Exception):
+    """Mark Step Execution Exception"""
+
+
 
 class Step(ABC):
     """Basic abstract Stept Interface"""
@@ -148,6 +161,7 @@ class StepTesseract(StepIOExtern):
         return ' '
 
 
+
 class StepPostReplaceChars(StepIO):
     """Postprocess: Replace suspicious character sequences"""
 
@@ -216,6 +230,7 @@ class StepPostReplaceChars(StepIO):
         return None
 
 
+
 class RegexReplacement:
     """Wrap Replacement Expression"""
 
@@ -224,6 +239,7 @@ class RegexReplacement:
         self.search = search
         self.replacer = replacer
         self.store_backup = False
+
 
 
 class StepPostReplaceCharsRegex(StepPostReplaceChars):
@@ -249,6 +265,7 @@ class StepPostReplaceCharsRegex(StepPostReplaceChars):
                     line = line.replace(match, replacement)
                     self._update_replacements(match + '=>' + replacement)
             self.lines_new.append(line)
+
 
 
 class StepPostMoveAlto(StepIO):
@@ -288,3 +305,181 @@ class StepPostRemoveFile(StepI):
         """Was File Removed?"""
 
         return self.file_removed
+
+
+
+class StepEstimateOCR(StepI):
+    """Estimate OCR-Quality of current run by using Web-Service language-tool"""
+
+    def __init__(self, path_in, service_url):
+        super().__init__(path_in)
+        self.lines = []
+        self.path_in = path_in
+        self.service_url = service_url
+        self.file_name = os.path.basename(path_in)
+        self.wtr = -1.0
+        self.n_words = 0
+        self.n_errs = 0
+        self.n_lines_in = 0
+        self.n_wraps = 0
+        self.n_shorts = 0
+        self.n_lines_out = 0
+
+
+    def execute(self):
+        self.lines = StepEstimateOCR._to_textlines(self.path_in)
+        if not self.lines:
+            raise StepException(f"No Textlines in '{self.path_in}'!")
+
+        (word_string, n_lines, n_normed, n_sparse, n_dense) = StepEstimateOCR._get_data(self.lines)
+        self.n_lines_in = n_lines
+        self.n_shorts = n_sparse
+        self.n_wraps = n_normed
+        self.n_lines_out = n_dense
+        self.n_words = len(word_string.split())
+
+        params = {'language':'de-DE',
+                  'text': word_string,
+                  'enabledRules': 'GERMAN_SPELLER_RULE',
+                  'enabledOnly': 'true'}
+        try:
+            response_data = self.request_data(params)
+            self.postprocess_response(response_data)
+        except:
+            raise StepException(f"Invalid data: {sys.exc_info()[0]}")
+
+    
+    def request_data(self, params):
+        """Get word errors for text from webservice"""
+
+        response = requests.post(self.service_url, params)
+        if not response.ok:
+            raise StepException(f"'{self.service_url}' returned invalid '{response}!'")
+        return response.json()
+
+
+    def postprocess_response(self, response_data):
+        """Collect error information"""
+
+        if 'matches' in response_data:
+            total_matches = response_data['matches']
+
+        typo_errors = len(total_matches)
+        if typo_errors > self.n_words:
+            typo_errors = self.n_words
+
+        coef = typo_errors / self.n_words * 100
+        self.n_errs = typo_errors
+        self.wtr = round(coef, 3)
+
+
+    @staticmethod
+    def _to_textlines(file_path):
+        """Convert ALTO Textlines to plain text lines"""
+
+        textnodes = ET.parse(file_path).findall('.//alto:TextLine', NAMESPACES)
+        lines = []
+        n_emptylines = 0
+        for textnode in textnodes:
+            all_strings = textnode.findall('.//alto:String', NAMESPACES)
+            words = [s.attrib['CONTENT'] for s in all_strings if s.attrib['CONTENT'].strip()]
+            if words:
+                lines.append(' '.join(words))
+            else:
+                n_emptylines += 1
+        return lines
+
+
+    @staticmethod
+    def _get_data(lines):
+        """Transform text lines after preprocessing into data set"""
+
+        non_empty_lines = [l for l in lines if l.strip()]
+
+        (normalized_lines, n_normalized) = StepEstimateOCR._sanitize_wraps(non_empty_lines)
+        filtered_lines = StepEstimateOCR._sanitize_chars(normalized_lines)
+        n_sparselines = 0
+        dense_lines = []
+        for filtered_line in filtered_lines:
+            # we do not want lines shorter than 2 chars
+            if len(filtered_line) > 2:
+                dense_lines.append(filtered_line)
+            else:
+                n_sparselines += 1
+
+        file_string = ' '.join(dense_lines)
+        return (file_string, len(lines), n_normalized, n_sparselines, len(dense_lines))
+
+
+    @staticmethod
+    def _sanitize_wraps(lines):
+        """Sanitize word wraps if last word token ends with '-' and another line following"""
+
+        normalized = []
+        n_normalized = 0
+        for i, line in enumerate(lines):
+            if i < len(lines)-1:
+                if line.endswith("-"):
+                    next_line_tokens = lines[i+1].split()
+                    nextline_first_token = next_line_tokens.pop(0)
+                    lines[i+1] = ' '.join(next_line_tokens)
+                    line = line[:-1] + nextline_first_token
+                    n_normalized += 1
+            normalized.append(line)
+        return (normalized, n_normalized)
+
+
+    @staticmethod
+    def _sanitize_chars(lines):
+        """Replace or remove nonrelevant chars for current german word error rate"""
+
+        sanitized = []
+        for line in lines:
+            text = line.strip()
+            bad_chars = '0123456789“„"\'?!*:-=[]()'
+            text = ''.join([c for c in text if not c in bad_chars])
+            if '..' in text:
+                text = text.replace('..', '')
+            if '  ' in text:
+                text = text.replace('  ', ' ')
+            if 'ſ' in text:
+                text = text.replace('ſ', 's')
+            text = ' '.join([t for t in text.split() if len(t) > 1])
+            sanitized.append(text)
+
+        return sanitized
+
+
+    def get(self):
+        """Retrive Estimation Details"""
+
+        return (self.wtr,
+                self.n_words,
+                self.n_errs,
+                self.n_lines_in,
+                self.n_wraps,
+                self.n_shorts,
+                self.n_lines_out)
+
+
+    @staticmethod
+    def analyze(results, bins=5, step_bin=15):
+        """Get insights and aggregate results in n bins"""
+
+        if results:
+            n_results = len(results)
+            mean = round(sum([e[1] for e in results]) / n_results, 3)
+
+            bin_counts = []
+            i = 0
+            while i < bins:
+                bin_counts.append([])
+                i += 1
+
+            for result in results:
+                target_bin = round(result[1] // step_bin)
+                if not target_bin < bins:
+                    target_bin = bins - 1
+                bin_counts[target_bin].append(result)
+
+            return (mean, bin_counts)

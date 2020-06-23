@@ -31,6 +31,9 @@ WORKDIR ${OCR_ROOT}
 COPY ./ocr_pipeline.py .
 COPY ./ocr_logger_config.ini .
 COPY ./lib/ ./lib
+COPY ./requirements.txt .
+RUN ["pip3", "install", "-r", "requirements.txt"]
+
 # not fail copy if TESS_MODEL not existing, it will match .gitignore at least
 COPY ./model/${TESS_MODEL} /usr/local/share/tessdata
 
@@ -40,4 +43,4 @@ RUN ["mkdir", "/home/ocr"]
 # for workdir use same folder as on host
 RUN ["mkdir", "/opt/ulb/ocr/workdir"]
 # for logs use same folder as on host
-RUN ["mkdir", "/opt/ulb/ocr/log"]
+RUN ["mkdir", "/opt/ulb/ocr/logdir"]

@@ -1,16 +1,7 @@
 #!/bin/bash
 
-set -xuo pipefall
+set -xu
 
-######
-#
-# PPNs
-# 1st: "General Anzeiger"               1667522809
-# 2nd: "Hallische Nachrichten"          1667524704
-# 3rd: "Der Bote für das Saalthal"      1681875195
-# 4th: "Saale-Zeitung (Bote fürs ...)"  1681877805
-#
-#####
 
 ##################
 # Script constants
@@ -20,11 +11,26 @@ OCR_ROOT_DIR=/data/ocr
 OCR_HOST=/opt/ulb/ocr
 OCR_STAGE_PREV="meta_done"
 OCR_STAGE_BUSY="ocr_busy"
+CONTAINER_LT="ocr-languagetool"
+
+
+
+function restart_languagetool {
+    if [[ $(docker ps -a) =~ ${CONTAINER_LT} ]]; then
+        echo "[INFO] drop existing container ${CONTAINER_LT}"
+        docker rm --force ${CONTAINER_LT}
+    fi
+
+    docker run -d -p 8010:8010 --name ${CONTAINER_LT} silviof/docker-languagetool
+}
+
 
 # $1 => name of ocr-pipeline container to forward tiff-data
 # $2 => numbers of process executors (8/12/16)
 # $3 => pipeline 1=scantailor , 2=opencv?
 function process_open_folders {
+    # we really want to use path expansion here
+    # shellcheck disable=SC2086
     FIRST_OPEN_PATH=$(find ${OCR_DIR} -type f -name "${OCR_STAGE_PREV}" | sort | head -n 1)
     # if nothing open, stop
     if [ "" == "${FIRST_OPEN_PATH}" ]; then
@@ -47,6 +53,9 @@ function process_open_folders {
     echo "[DEBUG] [${LOGGER}] state '${IS_RUNNING}' for container '${CONTAINER_NAME}' (folder: '${OPEN_PATH_FOLDER}')"
     if [ "" == "${IS_RUNNING}" ]; then
         echo "[INFO] [${LOGGER}] container '${CONTAINER_NAME}' idle, can be used for path ${OPEN_PATH_FOLDER}"
+
+        # restart language tool
+        restart_languagetool
 
         # prepare new workdir
         NEW_WORKDIR=${OCR_HOST}/workdir/${OPEN_PATH_FOLDER}
@@ -123,30 +132,34 @@ function recreate_container {
     echo "[INFO] [${LOGGER}] map HOST ${OCR_SCANDATA_HOST} to CONTAINER ${OCR_SCANDATA_CONT}"
 
     docker create --name "${CONTAINER_NAME}" \
-    --user 567:40367 \
+    --user "${CONTAINER_USER}" \
+    --network host \
     --mount type=bind,source="${OCR_SCANDATA_HOST}",target="${OCR_SCANDATA_CONT}" \
     --mount type=bind,source="${OCR_HOST_WORKDIR}",target="${OCR_CNT_WORKDIR}" \
-    --mount type=bind,source="${OCR_HOST}"/logdir,target="${OCR_CNT}"/log \
-    "${CONTAINER_BASE_IMAGE}" python3 ocr_pipeline.py -s "${OCR_SCANDATA_CONT}" -w "${OCR_CNT}/workdir" -e "${EXECUTORS}" -m "${MODEL_CONFIG}"
+    --mount type=bind,source="${OCR_HOST}"/logdir,target="${OCR_CNT}"/logdir \
+    "${CONTAINER_IMAGE}" python3 ocr_pipeline.py -s "${OCR_SCANDATA_CONT}" -w "${OCR_CNT}/workdir" -e "${EXECUTORS}" -m "${MODEL_CONFIG}"
+
+
 }
 
 
 ########
 # MAIN #
 ########
-# $1 => container name
-# $2 => executors (8|12|14)
-# @deprect$3 => pipeline (1|2)
-# $3 => ulb-dd-ocr-base-image: (i.e. "ulb-dd-ocr-pipeline:1.0.0")
-# $4 => PPN-Pattern (i.e. "/data/ocr/1667524704_*")
-# $5 => Tesseract-Model Configuration (i.e. "frk", "ulbzd_latest")
+# $1 => Docker: container image
+# $2 => Docker: container name
+# $3 => Docker: user:group (numeric) that runs the container and access host data shares
+# $4 => OCR: local directory of data-share, accepts find-patterns (i.e. "/data/ocr/1667524704_01*")
+# $5 => OCR: number of Tesseract-Executors (depending on host CPUs, i.e. 6|10|12)
+# $6 => OCR: Tesseract-Model configuration to use (i.e. "frk", "custom_model_01")
 ######
 
-CONTAINER_NAME=$1
-EXECUTORS=$2
-CONTAINER_BASE_IMAGE=$3
+CONTAINER_IMAGE=$1
+CONTAINER_NAME=$2
+CONTAINER_USER=$3
 OCR_DIR=$4
-MODEL_CONFIG=$5
+EXECUTORS=$5
+MODEL_CONFIG=$6
 
 echo "[INFO] [${LOGGER}] Container-Management with '${*}'"
 

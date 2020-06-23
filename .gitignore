@@ -19,3 +19,7 @@ venv
 
 # no tmp-whatever
 tmp*
+
+# no test artifacts
+htmlcov
+.coverage

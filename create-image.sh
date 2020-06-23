@@ -22,6 +22,7 @@ docker image rm "${IMAGE}:${IMAGE_TAG}" || echo "[WARN] image ${IMAGE}:${IMAGE_T
 
 # re-build container from scratch (no caches)
 docker build --no-cache \
+    --network=host \
     --build-arg BASE_IMAGE="${BASE_IMAGE}" \
     --build-arg BASE_IMAGE_TAG="${BASE_IMAGE_TAG}" \
     --build-arg TESS_MODEL="${TESS_MODEL}" \

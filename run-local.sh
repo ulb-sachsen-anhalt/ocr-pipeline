@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eu
+set -e
 
 ENV_NAME=venv
 
@@ -20,8 +20,22 @@ source ./${ENV_NAME}/bin/activate
 # $2 => work_dir
 # $3 => Tesseract executors 
 # $4 => Tesseract configuration
-PATTERN=${1%/*}
-python ocr_pipeline.py -s $PATTERN -w $2 -e $3 -m $4
+
+[[ $1 == */ ]] && PATTERN=${1%/*} || PATTERN=$1
+if [ -n "$2" ]; then
+    if [ -n "$3" ]; then
+        if [ -n "$4" ]; then
+            python ocr_pipeline.py -s "$PATTERN" -w $2 -e $3 -m $4
+        else
+            python ocr_pipeline.py -s "$PATTERN" -w $2 -e $3
+        fi
+    else
+        python ocr_pipeline.py -s "$PATTERN" -w $2 
+    fi
+else
+    python ocr_pipeline.py -s "$PATTERN" -w workdir/tmp 
+fi
+
 
 # clean up
 docker rm --force ${CONTAINER_NAME}

@@ -46,7 +46,7 @@ PREVIOUS_STAGE = 'meta_done'
 TIME_STAMP = time.strftime('%Y-%m-%d_%H-%M', time.localtime())
 LOG_FOLDER = '/opt/ulb/ocr/logdir'
 LOGGER_NAME = 'ocr_pipeline'
-#FORMATTER = logging.Formatter('%(asctime)so [%(levelname)so] - %(message)so')
+#FORMATTER = logging.Formatter('%(asctime)s [%(levelname)s] - %(message)s')
 
 
 class OCRLog:
@@ -78,7 +78,7 @@ class OCRLog:
             conf_logname = {'logname' : self.logfile_name}
             logging.config.fileConfig('ocr_logger_config.ini', defaults=conf_logname)
             #logging.config.fileConfig('ocr_logger_config.ini')
-            # logging.lastResort = None
+            # logging.lastRessort = None
             self.the_logger = logging.getLogger(LOGGER_NAME)
 
 
@@ -92,14 +92,14 @@ class OCRLog:
 
 
 def _clean_dir(the_dir):
-    THE_LOGGER.info('clean workdir \'%so\'', the_dir)
+    THE_LOGGER.info(f"clean workdir '{the_dir}'")
     if os.path.isdir(the_dir):
         for file_ in os.listdir(the_dir):
             fpath = os.path.join(the_dir, file_)
             if os.path.isfile(fpath):
                 os.unlink(fpath)
     else:
-        THE_LOGGER.error('invalid workdir \'%so\' specified', the_dir)
+        THE_LOGGER.error(f"invalid workdir '{the_dir}' specified")
         sys.exit(3)
 
 
@@ -110,7 +110,7 @@ def _profile(func, img_path):
     func_delta = func_end - func_start
     label = str(func).split()[4].split('.')[2]
     image_name = os.path.basename(img_path)
-    THE_LOGGER.debug('[{}] step "{}" passed in {:.2f} so'.format(image_name, label, func_delta))
+    THE_LOGGER.debug(f"[{image_name}] step '{label}' passed in {func_delta:.2f}s")
 
 
 def _execute_pipeline(start_path):
@@ -125,13 +125,13 @@ def _execute_pipeline(start_path):
         step_tesseract = StepTesseract(next_in, args, path_out_folder=WORK_DIR)
         step_label = type(step_tesseract).__name__
         step_tesseract.update_cmd()
-        THE_LOGGER.debug('[{}] tesseract args {}'.format(image_name, step_tesseract.cmd))
+        THE_LOGGER.debug(f"[{image_name}] tesseract args {step_tesseract.cmd}'")
         _profile(step_tesseract.execute, start_path)
         next_in = step_tesseract.path_out
 
         # post correct ALTO data
         stats = []
-        dict2 = {'ic)' : 'ich', 'so&lt;' : 'sc', '&lt;':'c'}
+        dict2 = {'ic)' : 'ich', 's&lt;' : 'sc', '&lt;':'c'}
         step_replace = StepPostReplaceChars(next_in, dict2)
         step_label = type(step_replace).__name__
         step_replace.execute()
@@ -139,7 +139,7 @@ def _execute_pipeline(start_path):
         if replacements:
             stats += replacements
         next_in = step_replace.path_out
-        replace_trailing_three = RegexReplacement(r'([aeioubcglnt]3[:-]*")', '3', 'so')
+        replace_trailing_three = RegexReplacement(r'([aeioubcglnt]3[:-]*")', '3', 's')
         regex_replacements = [replace_trailing_three]
         step_regex = StepPostReplaceCharsRegex(next_in, regex_replacements)
         step_label = type(step_regex).__name__
@@ -169,18 +169,18 @@ def _execute_pipeline(start_path):
         return (image_name, wtr, nws, nes, nlin, nwraps, nss, nlout)
 
     except StepException as exc:
-        THE_LOGGER.error('[{}] {}: {}'.format(start_path, step_label, exc))
+        THE_LOGGER.error(f"[{start_path}] {step_label}: {exc}")
     except OSError as exc:
-        THE_LOGGER.error('[{}] {}: {}'.format(start_path, step_label, exc))
+        THE_LOGGER.error(f"[{start_path}] {step_label}: {exc}")
         sys.exit(1)
     except:
-        THE_LOGGER.error('[{}] {}: {}'.format(start_path, step_label, sys.exc_info()[0]))
+        THE_LOGGER.error(f"[{start_path}] {step_label}: {sys.exc_info()}")
         sys.exit(1)
 
     # delta time
     pipeline_end = time.time()
     pipeline_delta = pipeline_end - pipeline_start
-    THE_LOGGER.info('[{}] passed pipeline in {:.2f}so'.format(image_name, pipeline_delta))
+    THE_LOGGER.info(f"[{image_name}] passed pipeline in {pipeline_delta:.2f}s")
 
     # final return in case of exceptions or errors
     return (image_name, -1)
@@ -189,39 +189,41 @@ def _execute_pipeline(start_path):
 # main entry point
 if __name__ == '__main__':
     APP_ARGUMENTS = argparse.ArgumentParser()
-    APP_ARGUMENTS.add_argument("-so", "--scandata", required=True, help="path to scandata")
+    APP_ARGUMENTS.add_argument("-s", "--scandata", required=True, help="path to scandata")
     APP_ARGUMENTS.add_argument("-w", "--workdir", required=True, help="path to workdir")
-    APP_ARGUMENTS.add_argument("-e", "--executors", required=True, help="size of executorpool")
+    APP_ARGUMENTS.add_argument("-e", "--executors", required=False, help="size of executorpool")
     APP_ARGUMENTS.add_argument("-d", "--dpi", required=False, help="resolution in dpi")
     APP_ARGUMENTS.add_argument("-m", "--models", required=False, help="tesseract model config")
     ARGS = vars(APP_ARGUMENTS.parse_args())
 
     SCANDATA_PATH = ARGS["scandata"]
     if not os.path.isdir(SCANDATA_PATH):
-        print('scandata path \'{}\' not accessible'.format(SCANDATA_PATH), file=sys.stderr)
+        print(f"scandata path '{SCANDATA_PATH}' not accessible!", file=sys.stderr)
         sys.exit(2)
     THE_LOGGER = OCRLog.get(LOG_FOLDER, DEFAULT_WORK_DIR)
 
     WORK_DIR = ARGS["workdir"]
     if not WORK_DIR:
         WORK_DIR = DEFAULT_WORK_DIR
-        THE_LOGGER.warning('no workdir: fallback to %so', WORK_DIR)
+        THE_LOGGER.warning(f"workdir not set, fallback to {WORK_DIR}")
     if not os.path.isdir(WORK_DIR):
-        THE_LOGGER.warning('invalid workdir %so: fallback to %so', WORK_DIR, DEFAULT_WORK_DIR)
+        THE_LOGGER.warning(f"workdir invalid '{WORK_DIR}', fallback to '{DEFAULT_WORK_DIR}'")
         WORK_DIR = '/tmp/ocr-tesseract'
-    WORKER = int(ARGS["executors"])
-    if not WORKER:
-        THE_LOGGER.warning('no executor poolsize set: fallback to %so', DEFAULT_WORKER)
+    EXECS = ARGS["executors"]
+    if not EXECS:
+        THE_LOGGER.warning(f"number of executors not set, fallback to '{DEFAULT_WORKER}'")
         WORKER = DEFAULT_WORKER
+    else:
+        WORKER = int(EXECS)
     DPI = ARGS["dpi"]
     if not DPI:
         DPI = DEFAULT_DPI
     MODEL_CONFIG = ARGS["models"]
     if not MODEL_CONFIG:
-        THE_LOGGER.warning('no model configuration was set: fallback to %so', DEFAULT_MODEL)
+        THE_LOGGER.warning(f"Tesseract model config not set, fallback to '{DEFAULT_MODEL}'")
         MODEL_CONFIG = DEFAULT_MODEL
 
-    # read and so image files
+    # read and sort image files
     IMAGE_PATHS = glob.glob(SCANDATA_PATH+"/*.tif")
     IMAGE_PATHS = sorted(IMAGE_PATHS)
 
@@ -241,7 +243,8 @@ if __name__ == '__main__':
     try:
         with concurrent.futures.ProcessPoolExecutor(max_workers=WORKER) as executor:
             results = list(executor.map(_execute_pipeline, IMAGE_PATHS))
-
+            
+            END_TIME = time.strftime('%Y-%m-%d_%H-%M', time.localtime())
             valid_results = [r for r in results if r[1] != -1]
             invalids = [r for r in results if r[1] == -1]
             sorted_outcomes = sorted(valid_results, key=lambda r: r[1])
@@ -257,11 +260,11 @@ if __name__ == '__main__':
                 n_e = len(invalids)
                 THE_LOGGER.info(f"WTR (Mean) : '{mean}' (1: {b1}/{n_v}, ... 5: {b5}/{n_v})")
                 file_name = os.path.basename(SCANDATA_PATH)
-                file_path = os.path.join(SCANDATA_PATH, file_name + '_' + TIME_STAMP + '.wtr')
+                file_path = os.path.join(SCANDATA_PATH, file_name + '_' + END_TIME + '.wtr')
                 with open(file_path, 'w') as outfile:
                     outfile.write(f"{mean},{b1},{b2},{b3},{b4},{b5},{len(results)},{n_e}\n")
-                    for so in sorted_outcomes:
-                        outfile.write(f"{so[0]},{so[1]:.3f},{so[2]},{so[3]},{so[4]},{so[5]},{so[6]},{so[7]}\n")
+                    for _s in sorted_outcomes:
+                        outfile.write(f"{_s[0]},{_s[1]:.3f},{_s[2]},{_s[3]},{_s[4]},{_s[5]},{_s[6]},{_s[7]}\n")
                     outfile.write("\n")
 
     except OSError as exc:
@@ -272,7 +275,7 @@ if __name__ == '__main__':
     DELTA_TS = (time.time()) - START_TS
     MSG_RT = f'{DELTA_TS:.2f} sec ({math.floor(DELTA_TS/60)}min {math.floor(DELTA_TS % 60)}sec)'
     END_TS = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
-    THE_LOGGER.info(f'end pipeline run "{END_TS}": {MSG_RT}')
+    THE_LOGGER.info(f"Pipeline finished at '{END_TS}' ({MSG_RT})")
     # exchange process state marker - set 'done' at last
     OLD_MARKER = os.path.join(SCANDATA_PATH, 'ocr_busy')
     MARKER_FHANDLE = open(OLD_MARKER, 'a+')

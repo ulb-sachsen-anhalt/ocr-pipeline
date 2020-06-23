@@ -63,7 +63,7 @@ function process_open_folders {
         if [ -d "${NEW_WORKDIR}" ]; then
             echo "[WARN] [${LOGGER}] found existing workdir ${NEW_WORKDIR}"
             #rm -rf "${NEW_WORKDIR}"
-            TS=$( +%Y-%d-%m-%H-%M)
+            TS=$(date +%Y-%d-%m-%H-%M)
             mkdir "${NEW_WORKDIR}_${TS}" || exit 1
         else
             echo "[INFO] [${LOGGER}] creating new workdir ${NEW_WORKDIR}"

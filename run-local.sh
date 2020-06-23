@@ -13,9 +13,15 @@ fi
 
 docker run -d -p 8010:8010 --name ${CONTAINER_NAME} silviof/docker-languagetool
 
+# shellcheck disable=SC1090
 source ./${ENV_NAME}/bin/activate
 
 # $1 => scandata_path
 # $2 => work_dir
-# $x => executors fixed to 3 for local Desktop PC
-python ocr_pipeline.py -s $1 -w $2 -e 3 -m $3
+# $3 => Tesseract executors 
+# $4 => Tesseract configuration
+PATTERN=${1%/*}
+python ocr_pipeline.py -s $PATTERN -w $2 -e $3 -m $4
+
+# clean up
+docker rm --force ${CONTAINER_NAME}

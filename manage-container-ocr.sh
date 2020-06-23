@@ -12,7 +12,7 @@ OCR_HOST=/opt/ulb/ocr
 OCR_STAGE_PREV="meta_done"
 OCR_STAGE_BUSY="ocr_busy"
 CONTAINER_LT="ocr-languagetool"
-
+NEW_WORKDIR="/tmp"
 
 
 function restart_languagetool {
@@ -64,12 +64,12 @@ function process_open_folders {
             echo "[WARN] [${LOGGER}] found existing workdir ${NEW_WORKDIR}"
             #rm -rf "${NEW_WORKDIR}"
             TS=$(date +%Y-%d-%m-%H-%M)
-            mkdir "${NEW_WORKDIR}_${TS}" || exit 1
+            NEW_WORKDIR="${NEW_WORKDIR}_${TS}"
         else
             echo "[INFO] [${LOGGER}] creating new workdir ${NEW_WORKDIR}"
             # create workdir or die
-            mkdir "${NEW_WORKDIR}" || exit 1
         fi
+        mkdir "${NEW_WORKDIR}" || exit 1
 
         # forward container re-creation
         recreate_container "${OPEN_PATH_FOLDER}"
@@ -114,7 +114,7 @@ function recreate_container {
     # environment vars
     OCR_CNT_SMB=/home/ocr
     OCR_CNT=/opt/ulb/ocr
-    OCR_HOST_WORKDIR=${OCR_HOST}/workdir/${folder}
+    OCR_HOST_WORKDIR=${NEW_WORKDIR}
     OCR_CNT_WORKDIR=${OCR_CNT}/workdir
     OCR_SCANDATA_HOST=${OCR_ROOT_DIR}/${folder}
     OCR_SCANDATA_CONT=${OCR_CNT_SMB}/${folder}

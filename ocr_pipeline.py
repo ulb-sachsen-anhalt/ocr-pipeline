@@ -35,7 +35,7 @@ DEFAULT_DPI = '470'
 DEFAULT_WORKER = 4
 
 # fallback: tesseract model config to use
-# frk = Fraktura
+# frk = Fraktur
 # deu_frak = Deutsch-Fraktur
 DEFAULT_MODEL = 'frk'
 
@@ -74,7 +74,7 @@ class OCRLog:
                 file_prefix = 'ocr'
 
             self.logfile_name = os.path.join(logger_folder, file_prefix+'_'+TIME_STAMP+'.log')
-            print("[DEBUG] creating logfile '{}'".format(self.logfile_name))
+            print(f"[DEBUG] creating logfile '{self.logfile_name}'")
             conf_logname = {'logname' : self.logfile_name}
             logging.config.fileConfig('ocr_logger_config.ini', defaults=conf_logname)
             #logging.config.fileConfig('ocr_logger_config.ini')
@@ -148,7 +148,7 @@ def _execute_pipeline(start_path):
         if regexs:
             stats += regexs
         if stats:
-            THE_LOGGER.info('[{}] replace >>[{}]<<'.format(image_name, ', '.join(stats)))
+            THE_LOGGER.info(f"[{image_name}] replace >>[{', '.join(stats)}]<<")
         next_in = step_replace.path_out
 
         # estimate OCR quality
@@ -156,10 +156,8 @@ def _execute_pipeline(start_path):
         step_label = type(step_estm).__name__
         _profile(step_estm.execute, start_path)
         (wtr, nws, nes, nlin, nwraps, nss, nlout) = step_estm.get()
-        THE_LOGGER.info('[{}] WTR "{}" ({}/{}, {}=>{}brk=>{}shr=>{})'.format(image_name,
-                                                                             wtr, nes, nws,
-                                                                             nlin, nwraps,
-                                                                             nss, nlout))
+        l_e = f"[{image_name}] WTR '{wtr}' ({nes}/{nws}, {nlin}=>{nwraps}brk=>{nss}shr=>{nlout})"
+        THE_LOGGER.info(l_e)
 
         # move ALTO Data
         step_move_alto = StepPostMoveAlto(next_in, start_path)
@@ -186,6 +184,30 @@ def _execute_pipeline(start_path):
     return (image_name, -1)
 
 
+def _postprocess(estimations, file_path):
+    """Postprocessing of OCR-Quality Estimation Data"""
+
+    valids = [r for r in estimations if r[1] != -1]
+    invalids = [r for r in estimations if r[1] == -1]
+    sorteds = sorted(valids, key=lambda r: r[1])
+    aggregations = StepEstimateOCR.analyze(sorteds)
+    if aggregations:
+        (mean, bins) = aggregations
+        b_1 = len(bins[0])
+        b_2 = len(bins[1])
+        b_3 = len(bins[2])
+        b_4 = len(bins[3])
+        b_5 = len(bins[4])
+        n_v = len(valids)
+        n_i = len(invalids)
+        THE_LOGGER.info(f"WTR (Mean) : '{mean}' (1: {b_1}/{n_v}, ... 5: {b_5}/{n_v})")
+        with open(file_path, 'w') as outfile:
+            outfile.write(f"{mean},{b_1},{b_2},{b_3},{b_4},{b_5},{len(estimations)},{n_i}\n")
+            for s in sorteds:
+                outfile.write(f"{s[0]},{s[1]:.3f},{s[2]},{s[3]},{s[4]},{s[5]},{s[6]},{s[7]}\n")
+            outfile.write("\n")
+
+
 # main entry point
 if __name__ == '__main__':
     APP_ARGUMENTS = argparse.ArgumentParser()
@@ -198,7 +220,7 @@ if __name__ == '__main__':
 
     SCANDATA_PATH = ARGS["scandata"]
     if not os.path.isdir(SCANDATA_PATH):
-        print(f"scandata path '{SCANDATA_PATH}' not accessible!", file=sys.stderr)
+        print(f"[ERROR] scandata path '{SCANDATA_PATH}' invalid!", file=sys.stderr)
         sys.exit(2)
     THE_LOGGER = OCRLog.get(LOG_FOLDER, DEFAULT_WORK_DIR)
 
@@ -242,30 +264,11 @@ if __name__ == '__main__':
     # perform sequential part of pipeline with parallel processing
     try:
         with concurrent.futures.ProcessPoolExecutor(max_workers=WORKER) as executor:
-            results = list(executor.map(_execute_pipeline, IMAGE_PATHS))
-            
+            ESTIMATIONS = list(executor.map(_execute_pipeline, IMAGE_PATHS))
             END_TIME = time.strftime('%Y-%m-%d_%H-%M', time.localtime())
-            valid_results = [r for r in results if r[1] != -1]
-            invalids = [r for r in results if r[1] == -1]
-            sorted_outcomes = sorted(valid_results, key=lambda r: r[1])
-            estm_results = StepEstimateOCR.analyze(sorted_outcomes)
-            if estm_results:
-                (mean, bins) = estm_results
-                b1 = len(bins[0])
-                b2 = len(bins[1])
-                b3 = len(bins[2])
-                b4 = len(bins[3])
-                b5 = len(bins[4])
-                n_v = len(valid_results)
-                n_e = len(invalids)
-                THE_LOGGER.info(f"WTR (Mean) : '{mean}' (1: {b1}/{n_v}, ... 5: {b5}/{n_v})")
-                file_name = os.path.basename(SCANDATA_PATH)
-                file_path = os.path.join(SCANDATA_PATH, file_name + '_' + END_TIME + '.wtr')
-                with open(file_path, 'w') as outfile:
-                    outfile.write(f"{mean},{b1},{b2},{b3},{b4},{b5},{len(results)},{n_e}\n")
-                    for _s in sorted_outcomes:
-                        outfile.write(f"{_s[0]},{_s[1]:.3f},{_s[2]},{_s[3]},{_s[4]},{_s[5]},{_s[6]},{_s[7]}\n")
-                    outfile.write("\n")
+            FILE_NAME = os.path.basename(SCANDATA_PATH)
+            FILE_PATH = os.path.join(SCANDATA_PATH, FILE_NAME + '_' + END_TIME + '.wtr')
+            _postprocess(ESTIMATIONS, FILE_PATH)
 
     except OSError as exc:
         THE_LOGGER.error(exc)
@@ -276,9 +279,11 @@ if __name__ == '__main__':
     MSG_RT = f'{DELTA_TS:.2f} sec ({math.floor(DELTA_TS/60)}min {math.floor(DELTA_TS % 60)}sec)'
     END_TS = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
     THE_LOGGER.info(f"Pipeline finished at '{END_TS}' ({MSG_RT})")
+
     # exchange process state marker - set 'done' at last
     OLD_MARKER = os.path.join(SCANDATA_PATH, 'ocr_busy')
-    MARKER_FHANDLE = open(OLD_MARKER, 'a+')
-    MARKER_FHANDLE.write('\nswitch state to "ocr_done" in '+SCANDATA_PATH+' at ' + END_TS)
-    MARKER_FHANDLE.close()
+    with open(OLD_MARKER, 'a+') as marker_file:
+        marker_file.write('\nswitch state to "ocr_done" in '+SCANDATA_PATH+' at ' + END_TS)
+
+    # set new marker label
     os.rename(OLD_MARKER, os.path.join(SCANDATA_PATH, 'ocr_done'))

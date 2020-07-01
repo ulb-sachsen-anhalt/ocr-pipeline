@@ -68,7 +68,7 @@ class OCRLog:
                 if not os.path.exists(logger_folder):
                     os.makedirs(logger_folder)
 
-            # set film nr as logfile prefix
+            # set scandata path as logfile prefix
             file_prefix = os.path.basename(SCANDATA_PATH)
             if SCANDATA_PATH.endswith("/"):
                 file_prefix = 'ocr'
@@ -77,8 +77,6 @@ class OCRLog:
             print(f"[DEBUG] creating logfile '{self.logfile_name}'")
             conf_logname = {'logname' : self.logfile_name}
             logging.config.fileConfig('ocr_logger_config.ini', defaults=conf_logname)
-            #logging.config.fileConfig('ocr_logger_config.ini')
-            # logging.lastRessort = None
             self.the_logger = logging.getLogger(LOGGER_NAME)
 
 

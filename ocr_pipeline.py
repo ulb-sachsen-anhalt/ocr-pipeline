@@ -154,8 +154,9 @@ def _execute_pipeline(start_path):
         step_label = type(step_estm).__name__
         try:
             _profile(step_estm.execute, start_path)
-            (wtr, nws, nes, nlin, nwraps, nss, nlout) = step_estm.get()
-            l_e = f"[{image_name}] WTR '{wtr}' ({nes}/{nws}, {nlin}=>{nwraps}brk=>{nss}shr=>{nlout})"
+            result = step_estm.get()
+            (wtr, nws, nes, nin, nwraps, nss, nout) = result
+            l_e = f"[{image_name}] WTR '{wtr}' ({nes}/{nws}, {nin}=>{nwraps}brk=>{nss}shr=>{nout})"
             THE_LOGGER.info(l_e)
         except Exception as exc:
             THE_LOGGER.warn(f"Error at '{step_label}: {exc}")
@@ -165,7 +166,10 @@ def _execute_pipeline(start_path):
         step_label = type(step_move_alto).__name__
         step_move_alto.execute()
 
-        return (image_name, wtr, nws, nes, nlin, nwraps, nss, nlout)
+        if result is not None:
+            return (image_name, wtr, nws, nes, nin, nwraps, nss, nout)
+        else:
+            return (image_name, -1)
 
     except StepException as exc:
         THE_LOGGER.error(f"[{start_path}] {step_label}: {exc}")

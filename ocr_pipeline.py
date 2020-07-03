@@ -3,11 +3,11 @@
 
 import argparse
 import concurrent.futures
-import glob
 import logging
 import logging.config
 import math
 import os
+import pathlib
 import sys
 import time
 
@@ -243,8 +243,10 @@ if __name__ == '__main__':
         THE_LOGGER.warning(f"Tesseract model config not set, fallback to '{DEFAULT_MODEL}'")
         MODEL_CONFIG = DEFAULT_MODEL
 
-    # read and sort image files
-    IMAGE_PATHS = glob.glob(SCANDATA_PATH+"/*.tif")
+    # read and sort image files: tif|jpg|png
+    _f = lambda p: str(p).endswith('.tif') or str(p).endswith('.jpg') or str(p).endswith('.png')
+    p = pathlib.Path(SCANDATA_PATH)
+    IMAGE_PATHS = [str(i) for i in p.iterdir() if _f(i)]
     IMAGE_PATHS = sorted(IMAGE_PATHS)
 
     # debugging output

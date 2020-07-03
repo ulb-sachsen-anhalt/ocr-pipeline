@@ -157,7 +157,7 @@ def _execute_pipeline(start_path):
             (wtr, nws, nes, nlin, nwraps, nss, nlout) = step_estm.get()
             l_e = f"[{image_name}] WTR '{wtr}' ({nes}/{nws}, {nlin}=>{nwraps}brk=>{nss}shr=>{nlout})"
             THE_LOGGER.info(l_e)
-        except ConnectionError as exc:
+        except Exception as exc:
             THE_LOGGER.warn(f"Error at '{step_label}: {exc}")
 
         # move ALTO Data

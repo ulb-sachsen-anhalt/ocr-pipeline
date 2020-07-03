@@ -152,10 +152,13 @@ def _execute_pipeline(start_path):
         # estimate OCR quality
         step_estm = StepEstimateOCR(next_in, 'http://localhost:8010/v2/check')
         step_label = type(step_estm).__name__
-        _profile(step_estm.execute, start_path)
-        (wtr, nws, nes, nlin, nwraps, nss, nlout) = step_estm.get()
-        l_e = f"[{image_name}] WTR '{wtr}' ({nes}/{nws}, {nlin}=>{nwraps}brk=>{nss}shr=>{nlout})"
-        THE_LOGGER.info(l_e)
+        try:
+            _profile(step_estm.execute, start_path)
+            (wtr, nws, nes, nlin, nwraps, nss, nlout) = step_estm.get()
+            l_e = f"[{image_name}] WTR '{wtr}' ({nes}/{nws}, {nlin}=>{nwraps}brk=>{nss}shr=>{nlout})"
+            THE_LOGGER.info(l_e)
+        except ConnectionError as exc:
+            THE_LOGGER.warn(f"Error at '{step_label}: {exc}")
 
         # move ALTO Data
         step_move_alto = StepPostMoveAlto(next_in, start_path)

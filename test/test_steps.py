@@ -319,7 +319,7 @@ def test_estimate_handle_large_wtr():
         ('0002.tif', 28.123),
         ('0003.tif', 41.123),
         ('0004.tif', 50.123),
-        ('0936.tif', 78.571),    
+        ('0936.tif', 78.571),
         ('0005.tif', 100.123),
     ]
 
@@ -347,14 +347,21 @@ def test_step_estimateocr_empty_alto(empty_ocr):
     assert "No Textlines" in str(exec_info.value)
 
 
+def test_service_down(empty_ocr):
+    """Determine Behavior when url not accessible"""
+
+    step = StepEstimateOCR(empty_ocr, 'http://localhost:8010')
+    assert not step.is_available()
+
+
 def test_step_estimateocr_lines_and_tokens():
     """Test behavior of for valid ALTO-output"""
-    
-    test_data = os.path.join('test','resources','500_gray00003.xml')
+
+    test_data = os.path.join('test', 'resources', '500_gray00003.xml')
 
     # act
     lines = StepEstimateOCR._to_textlines(test_data)
-    (txt, n_lines, n_normalized, n_sparselines, n_lines_out) = StepEstimateOCR._get_data(lines)
+    (_, n_lines, _, _, n_lines_out) = StepEstimateOCR._get_data(lines)
 
     assert len(lines) == 370
     assert n_lines == 370

@@ -150,16 +150,18 @@ def _execute_pipeline(start_path):
         next_in = step_replace.path_out
 
         # estimate OCR quality
+        result = None
         step_estm = StepEstimateOCR(next_in, 'http://localhost:8010/v2/check')
         step_label = type(step_estm).__name__
-        try:
-            _profile(step_estm.execute, start_path)
-            result = step_estm.get()
-            (wtr, nws, nes, nin, nwraps, nss, nout) = result
-            l_e = f"[{image_name}] WTR '{wtr}' ({nes}/{nws}, {nin}=>{nwraps}brk=>{nss}shr=>{nout})"
-            THE_LOGGER.info(l_e)
-        except Exception as exc:
-            THE_LOGGER.warn(f"Error at '{step_label}: {exc}")
+        if step_estm.is_available():
+            try:
+                _profile(step_estm.execute, start_path)
+                result = step_estm.get()
+                (wtr, nws, nes, nin, nwraps, nss, nout) = result
+                l_e = f"[{image_name}] WTR '{wtr}' ({nes}/{nws}, {nin}=>{nwraps}brk=>{nss}shr=>{nout})"
+                THE_LOGGER.info(l_e)
+            except StepException as exc:
+                THE_LOGGER.warn(f"Error at '{step_label}: {exc}")
 
         # move ALTO Data
         step_move_alto = StepPostMoveAlto(next_in, start_path)
@@ -272,10 +274,15 @@ if __name__ == '__main__':
     try:
         with concurrent.futures.ProcessPoolExecutor(max_workers=WORKER) as executor:
             ESTIMATIONS = list(executor.map(_execute_pipeline, IMAGE_PATHS))
-            END_TIME = time.strftime('%Y-%m-%d_%H-%M', time.localtime())
-            FILE_NAME = os.path.basename(SCANDATA_PATH)
-            FILE_PATH = os.path.join(SCANDATA_PATH, FILE_NAME + '_' + END_TIME + '.wtr')
-            _postprocess(ESTIMATIONS, FILE_PATH)
+            estimations = [r for r in ESTIMATIONS if r[1] > -1]
+            if estimations:
+                THE_LOGGER.info("start postprocessing ocr estimation data")
+                END_TIME = time.strftime('%Y-%m-%d_%H-%M', time.localtime())
+                FILE_NAME = os.path.basename(SCANDATA_PATH)
+                FILE_PATH = os.path.join(SCANDATA_PATH, FILE_NAME + '_' + END_TIME + '.wtr')
+                _postprocess(estimations, FILE_PATH)
+            else:
+                THE_LOGGER.info("no ocr estimation data for postprocessing available, no data written")
 
     except OSError as exc:
         THE_LOGGER.error(exc)

@@ -296,10 +296,9 @@ class StepPostRemoveFile(StepI):
 
 
     def execute(self):
-        if os.path.exists(self.path_in):
-            if os.path.basename(self.path_in).endswith(self.suffix):
-                os.remove(self.path_in)
-                self.file_removed = True
+        if os.path.exists(self.path_in) and os.path.basename(self.path_in).endswith(self.suffix):
+            os.remove(self.path_in)
+            self.file_removed = True
 
     def is_removed(self):
         """Was File Removed?"""
@@ -326,6 +325,16 @@ class StepEstimateOCR(StepI):
         self.n_lines_out = 0
 
 
+    def is_available(self):
+        """Connection established ?"""
+
+        try:
+            requests.head(self.service_url)
+        except requests.ConnectionError:
+            return False
+        return True
+
+
     def execute(self):
         self.lines = StepEstimateOCR._to_textlines(self.path_in)
         if not self.lines:
@@ -345,10 +354,12 @@ class StepEstimateOCR(StepI):
         try:
             response_data = self.request_data(params)
             self.postprocess_response(response_data)
-        except:
+        except ConnectionError as exc:
+            raise StepException(f"Invalid connection: {exc}")
+        except Exception:
             raise StepException(f"Invalid data: {sys.exc_info()[0]}")
 
-    
+
     def request_data(self, params):
         """Get word errors for text from webservice"""
 
@@ -379,14 +390,11 @@ class StepEstimateOCR(StepI):
 
         textnodes = ET.parse(file_path).findall('.//alto:TextLine', NAMESPACES)
         lines = []
-        n_emptylines = 0
         for textnode in textnodes:
             all_strings = textnode.findall('.//alto:String', NAMESPACES)
             words = [s.attrib['CONTENT'] for s in all_strings if s.attrib['CONTENT'].strip()]
             if words:
                 lines.append(' '.join(words))
-            else:
-                n_emptylines += 1
         return lines
 
 
@@ -418,13 +426,12 @@ class StepEstimateOCR(StepI):
         normalized = []
         n_normalized = 0
         for i, line in enumerate(lines):
-            if i < len(lines)-1:
-                if line.endswith("-"):
-                    next_line_tokens = lines[i+1].split()
-                    nextline_first_token = next_line_tokens.pop(0)
-                    lines[i+1] = ' '.join(next_line_tokens)
-                    line = line[:-1] + nextline_first_token
-                    n_normalized += 1
+            if i < len(lines)-1 and line.endswith("-"):
+                next_line_tokens = lines[i+1].split()
+                nextline_first_token = next_line_tokens.pop(0)
+                lines[i+1] = ' '.join(next_line_tokens)
+                line = line[:-1] + nextline_first_token
+                n_normalized += 1
             normalized.append(line)
         return (normalized, n_normalized)
 

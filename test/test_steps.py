@@ -140,7 +140,7 @@ def test_step_replace():
     # arrange
     src = './test/resources/500_gray00003.xml'
     dict_chars = {'ſ': 's', 'ic)' : 'ich'}
-    step = StepPostReplaceChars(src, dict_chars)
+    step = StepPostReplaceChars(src, dict_chars, must_backup=True)
     lines = ['<String ID="string_405" WC="0.96" CONTENT="geweſen"/>']
     lines.append('<String ID="string_406" WC="0.95" CONTENT="iſt."/>')
     lines.append('<String ID="string_407" WC="0.96" CONTENT="Beſtätigt"/>')
@@ -190,7 +190,7 @@ def test_replaced_file_written(tmp_500_gray):
 
     # arrange
     dict_chars = {'ſ': 's', 'ic)' : 'ich'}
-    step = StepPostReplaceChars(str(tmp_500_gray), dict_chars)
+    step = StepPostReplaceChars(str(tmp_500_gray), dict_chars, must_backup=True)
 
     # act
     step.execute()
@@ -214,7 +214,7 @@ def test_replaced_file_statistics(tmp_500_gray):
 
     # arrange
     dict_chars = {'ſ': 's', 'ic)' : 'ich'}
-    step = StepPostReplaceChars(str(tmp_500_gray), dict_chars)
+    step = StepPostReplaceChars(str(tmp_500_gray), dict_chars, must_backup=True)
 
     # act
     step.execute()
@@ -339,7 +339,7 @@ def test_estimate_handle_large_wtr():
 def test_step_estimateocr_empty_alto(empty_ocr):
     """Determine bahavior of stepestimator when confronted with empty alto file"""
 
-    step = StepEstimateOCR(empty_ocr, 'http://localhost:8010')
+    step = StepEstimateOCR(empty_ocr, 'http://localhost:8011')
 
     # act
     with pytest.raises(StepException) as exec_info:
@@ -350,7 +350,7 @@ def test_step_estimateocr_empty_alto(empty_ocr):
 def test_service_down(empty_ocr):
     """Determine Behavior when url not accessible"""
 
-    step = StepEstimateOCR(empty_ocr, 'http://localhost:8010')
+    step = StepEstimateOCR(empty_ocr, 'http://localhost:8011')
     assert not step.is_available()
 
 
@@ -360,6 +360,7 @@ def test_step_estimateocr_lines_and_tokens():
     test_data = os.path.join('test', 'resources', '500_gray00003.xml')
 
     # act
+    # pylint: disable=protected-access
     lines = StepEstimateOCR._to_textlines(test_data)
     (_, n_lines, _, _, n_lines_out) = StepEstimateOCR._get_data(lines)
 

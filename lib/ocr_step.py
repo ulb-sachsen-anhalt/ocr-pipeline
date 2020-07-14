@@ -165,17 +165,18 @@ class StepTesseract(StepIOExtern):
 class StepPostReplaceChars(StepIO):
     """Postprocess: Replace suspicious character sequences"""
 
-    def __init__(self, path_in, dict_char):
+    def __init__(self, path_in, dict_char, must_backup=False):
         super().__init__(path_in)
         self.dict_char = dict_char
         self.lines_new = []
         self.replacements = {}
+        self.backup = must_backup
 
 
     def must_backup(self):
         """Determine if Backup file must be written"""
 
-        return True
+        return str(self.backup).upper() == 'TRUE'
 
 
     def execute(self):
@@ -245,14 +246,10 @@ class RegexReplacement:
 class StepPostReplaceCharsRegex(StepPostReplaceChars):
     """Postprocess: Replace via regular expressions"""
 
-    def __init__(self, path_in, regex_replacements):
-        super().__init__(path_in, {})
+    def __init__(self, path_in, regex_replacements, must_backup=None):
+        super().__init__(path_in, {}, must_backup=must_backup)
         self.regex_replacements = regex_replacements
         self.lines_new = []
-
-
-    def must_backup(self):
-        return False
 
 
     def _replace(self, lines):
@@ -310,7 +307,7 @@ class StepPostRemoveFile(StepI):
 class StepEstimateOCR(StepI):
     """Estimate OCR-Quality of current run by using Web-Service language-tool"""
 
-    def __init__(self, path_in, service_url):
+    def __init__(self, path_in, service_url, lang=None, rules=None):
         super().__init__(path_in)
         self.lines = []
         self.path_in = path_in
@@ -323,6 +320,12 @@ class StepEstimateOCR(StepI):
         self.n_wraps = 0
         self.n_shorts = 0
         self.n_lines_out = 0
+        self.lang = lang
+        if not lang:
+            self.lang = 'de-DE'
+        self.rules = rules
+        if not self.rules:
+            self.rules = 'GERMAN_SPELLER_RULE'
 
 
     def is_available(self):
@@ -347,9 +350,9 @@ class StepEstimateOCR(StepI):
         self.n_lines_out = n_dense
         self.n_words = len(word_string.split())
 
-        params = {'language':'de-DE',
+        params = {'language': self.lang,
                   'text': word_string,
-                  'enabledRules': 'GERMAN_SPELLER_RULE',
+                  'enabledRules': self.rules,
                   'enabledOnly': 'true'}
         try:
             response_data = self.request_data(params)

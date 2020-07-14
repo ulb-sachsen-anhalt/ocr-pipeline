@@ -10,4 +10,4 @@ source ./${ENV_NAME}/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
-pytest --cov-report html --cov=lib test/
+pytest --cov-report html --cov=lib --cov=ocr_pipeline test/ -v

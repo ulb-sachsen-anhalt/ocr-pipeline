@@ -29,7 +29,7 @@ WORKDIR ${OCR_ROOT}
 
 # copy application data into workdir
 COPY ./ocr_pipeline.py .
-COPY ./ocr_logger_config.ini .
+COPY ./conf/ ./conf
 COPY ./lib/ ./lib
 COPY ./requirements.txt .
 RUN ["pip3", "install", "-r", "requirements.txt"]

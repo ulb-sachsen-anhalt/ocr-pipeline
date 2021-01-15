@@ -55,11 +55,11 @@ class OCRPipeline():
 
 
     def _init_logger(self):
-        logger_folder = self.cfg.get('pipeline', 'host_logdir', fallback='/tmp')
+        logger_folder = self.cfg.get('pipeline', 'host_logdir', fallback='/tmp/log-ocr-pipeline')
         right_now = time.strftime('%Y-%m-%d_%H-%M', time.localtime())
         # path exists but cant be written
         if not os.path.exists(logger_folder) or not os.access(logger_folder, os.W_OK):
-            logger_folder = os.path.join('/tmp', 'log')
+            logger_folder = os.path.join('/tmp', 'log-ocr-pipeline')
             # create default tmp path if not existing
             if not os.path.exists(logger_folder):
                 os.makedirs(logger_folder)

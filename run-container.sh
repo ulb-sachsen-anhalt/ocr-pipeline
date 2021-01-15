@@ -5,7 +5,6 @@ set -eu
 
 
 # script constants
-CONTAINER_NAME=ocr-local
 CNT_OCR_ROOT=/opt/ulb/ocr
 CNT_OCR_N_EXECUTOR=4
 CNT_OCR_LOGDIR=${CNT_OCR_ROOT}/log
@@ -14,11 +13,15 @@ CNT_OCR_WORKDIR=${CNT_OCR_ROOT}/workdir
 # main
 # $1 => host_scandata_path
 # $2 => container image
-# $3 => tesseractr model config
+# $3 => container name
+# $4 => dpi images
+# $5 => tesseract model config
 #
 OPEN_FOLDER=$1
 CONTAINER_IMAGE=$2
-TESSERACT_MODEL=$3
+CONTAINER_NAME=$3
+DPI=$4
+TESSERACT_MODEL=$5
 
 HOST_CURRENT_DIR=$(pwd)
 HOST_WORKDIR=${HOST_CURRENT_DIR}/workdir/${OPEN_FOLDER##*/}
@@ -46,7 +49,7 @@ docker create --name ${CONTAINER_NAME} \
     --mount type=bind,source="${OPEN_FOLDER}",target=${CNT_SCANDATA} \
     --mount type=bind,source="${HOST_WORKDIR}",target="${CNT_OCR_WORKDIR}" \
     --mount type=bind,source="${HOST_LOGDIR}",target=${CNT_OCR_LOGDIR} \
-    ${CONTAINER_IMAGE} python3 ocr_pipeline.py -s ${CNT_SCANDATA} -w ${CNT_OCR_WORKDIR} -e ${CNT_OCR_N_EXECUTOR} -m ${TESSERACT_MODEL}
+    ${CONTAINER_IMAGE} python3 ocr_pipeline.py -s ${CNT_SCANDATA} -w ${CNT_OCR_WORKDIR} -m ${TESSERACT_MODEL} -d ${DPI}
 
 # run
 echo "[INFO] start '${CONTAINER_NAME}' and attach to logs"

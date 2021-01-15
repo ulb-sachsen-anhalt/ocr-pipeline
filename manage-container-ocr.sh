@@ -153,15 +153,17 @@ function recreate_container {
 # $3 => Docker: user:group (numeric) that runs the container and access host data shares
 # $4 => OCR: local directory of data-share, accepts find-patterns (i.e. "/data/ocr/1667524704_01*")
 # $5 => OCR: number of Tesseract-Executors (depending on host CPUs, i.e. 6|10|12)
-# $6 => OCR: Tesseract-Model configuration to use (i.e. "frk", "custom_model_01")
+# $6 => OCR: DPI of Images
+# $7 => OCR: Tesseract-Model configuration to use (i.e. "frk", "custom_model_01")
 ######
 
-CONTAINER_IMAGE=$1
-CONTAINER_NAME=$2
+CONTAINER_IMAGE=${1}
+CONTAINER_NAME=${2}
 CONTAINER_USER=$3
 OCR_DIR=$4
 EXECUTORS=$5
-MODEL_CONFIG=$6
+DPI=$6
+MODEL_CONFIG=$7
 
 echo "[INFO] [${LOGGER}] Container-Management with '${*}'"
 

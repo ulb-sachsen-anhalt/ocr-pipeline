@@ -50,7 +50,7 @@ def test_ocr_pipeline_default_config(default_pipeline):
     pipeline.log('info', 'this is a test log info message')
 
     # assert log data
-    tld = os.path.join(tempfile.gettempdir(), 'log')
+    tld = os.path.join(tempfile.gettempdir(), 'log-ocr-pipeline')
     assert os.path.exists(tld)
     log_files = [os.path.join(tld, f) for f in os.listdir(tld) if str(f).endswith('.log')]
     log_files.sort(key=os.path.getmtime)

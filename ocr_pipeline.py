@@ -306,11 +306,11 @@ if __name__ == '__main__':
     # setup workdir
     WORK_DIR = pipeline.prepare_workdir(ARGS["workdir"])
 
-    set up resolution
-        if ARGS['dpi'] is not None:
-            DPI = ARGS['dpi']
-        else:
-            DPI = pipeline.get('pipeline', 'dpi')
+    # set up resolution
+    if ARGS['dpi'] is not None:
+        DPI = ARGS['dpi']
+    else:
+        DPI = pipeline.get('pipeline', 'dpi')
 
     # setup some more pipeline parameters
     WORKER = int(pipeline.get('pipeline', 'executors'))

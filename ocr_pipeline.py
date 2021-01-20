@@ -293,6 +293,7 @@ if __name__ == '__main__':
     APP_ARGUMENTS.add_argument("-w", "--workdir", required=False, help="path to workdir")
     APP_ARGUMENTS.add_argument("-m", "--models", required=False, help="tesseract model config")
     APP_ARGUMENTS.add_argument("-d", "--dpi", required=False, help="DPI for pipeline")
+    APP_ARGUMENTS.add_argument("-e", "--executors", required=False, help="N of Pipeline Executors")
     ARGS = vars(APP_ARGUMENTS.parse_args())
 
     SCANDATA_PATH = ARGS["scandata"]
@@ -306,14 +307,20 @@ if __name__ == '__main__':
     # setup workdir
     WORK_DIR = pipeline.prepare_workdir(ARGS["workdir"])
 
-    # set up resolution
+    #
+    # setup some more pipeline parameters
+    #
+    # resolution
     if ARGS['dpi'] is not None:
         DPI = ARGS['dpi']
     else:
         DPI = pipeline.get('pipeline', 'dpi')
-
-    # setup some more pipeline parameters
-    WORKER = int(pipeline.get('pipeline', 'executors'))
+    # size of process pool
+    if ARGS['executors'] is not None:
+        WORKER = int(ARGS['executors'] )
+    else:
+        WORKER = int(pipeline.get('pipeline', 'executors'))
+    # special model configuration
     MODEL_CONFIG = ARGS["models"]
     if not MODEL_CONFIG:
         MODEL_CONFIG = pipeline.get('pipeline', 'model_configs')

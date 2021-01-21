@@ -11,23 +11,31 @@ from ocr_pipeline import (
     OCRPipeline
 )
 
-
+RES_0001_TIF = "0001.tif"
+RES_0002_PNG = "0002.png"
+RES_0003_JPG = "0003.jpg"
+RES_00041_XML = './tests/resources/0041.xml'
 
 @pytest.fixture(name="default_pipeline")
 def create_default_pipeline(tmpdir):
     """create tmp tif data dir"""
 
     path_dir = tmpdir.mkdir("scandata")
-    path_scan_0001 = path_dir.join("0001.tif")
-    path_scan_0002 = path_dir.join("0002.png")
-    path_scan_0003 = path_dir.join("0003.jpg")
+    path_scan_0001 = path_dir.join(RES_0001_TIF)
+    path_scan_0002 = path_dir.join(RES_0002_PNG)
+    path_scan_0003 = path_dir.join(RES_0003_JPG)
     path_mark_prev = path_dir.join("ocr_busy")
     with open(path_mark_prev, 'w') as marker_file:
         marker_file.write("previous state\n")
 
-    shutil.copyfile('./test/resources/0041.xml', path_scan_0001)
-    shutil.copyfile('./test/resources/0041.xml', path_scan_0002)
-    shutil.copyfile('./test/resources/0041.xml', path_scan_0003)
+    shutil.copyfile(RES_00041_XML, path_scan_0001)
+    shutil.copyfile(RES_00041_XML, path_scan_0002)
+    shutil.copyfile(RES_00041_XML, path_scan_0003)
+
+    # reset tmp log
+    tmp_log = os.path.join(tempfile.gettempdir(), 'ocr-pipeline-log')
+    if os.path.exists(tmp_log):
+        shutil.rmtree(tmp_log)
 
     return OCRPipeline(str(path_dir))
 
@@ -50,13 +58,13 @@ def test_ocr_pipeline_default_config(default_pipeline):
     pipeline.log('info', 'this is a test log info message')
 
     # assert log data
-    tld = os.path.join(tempfile.gettempdir(), 'log-ocr-pipeline')
+    tld = os.path.join(tempfile.gettempdir(), 'ocr-pipeline-log')
     assert os.path.exists(tld)
     log_files = [os.path.join(tld, f) for f in os.listdir(tld) if str(f).endswith('.log')]
     log_files.sort(key=os.path.getmtime)
     assert log_files[0]
     with open(os.path.join(tld, log_files[0]), 'r') as f_han:
-        entry = f_han.readline().strip()
+        entry = f_han.readlines()[1].strip()
         assert entry.endswith('[INFO ] this is a test log info message')
 
 
@@ -85,12 +93,12 @@ def test_ocr_pipeline_get_images(default_pipeline):
 
     # assert
     assert images
-    assert os.path.join(default_scanpath, "0001.tif") in images
-    assert os.path.join(default_scanpath, "0002.png") in images
-    assert os.path.join(default_scanpath, "0003.jpg") in images
-    assert os.path.join(default_scanpath, "0001.tif") == images[0]
-    assert os.path.join(default_scanpath, "0002.png") == images[1]
-    assert os.path.join(default_scanpath, "0003.jpg") == images[2]
+    assert os.path.join(default_scanpath, RES_0001_TIF) in images
+    assert os.path.join(default_scanpath, RES_0002_PNG) in images
+    assert os.path.join(default_scanpath, RES_0003_JPG) in images
+    assert os.path.join(default_scanpath, RES_0001_TIF) == images[0]
+    assert os.path.join(default_scanpath, RES_0002_PNG) == images[1]
+    assert os.path.join(default_scanpath, RES_0003_JPG) == images[2]
 
 
 def test_ocr_pipeline_prepare_workdir(default_pipeline):

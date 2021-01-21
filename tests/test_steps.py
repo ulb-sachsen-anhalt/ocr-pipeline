@@ -138,7 +138,7 @@ def test_step_replace():
     """unittest replace func"""
 
     # arrange
-    src = './test/resources/500_gray00003.xml'
+    src = './tests/resources/500_gray00003.xml'
     dict_chars = {'ſ': 's', 'ic)' : 'ich'}
     step = StepPostReplaceChars(src, dict_chars, must_backup=True)
     lines = ['<String ID="string_405" WC="0.96" CONTENT="geweſen"/>']
@@ -160,7 +160,7 @@ def fixture_empty_ocr(tmpdir):
     """create tmp data empty ALTO XML"""
 
     path = tmpdir.mkdir("xml").join("0041.xml")
-    shutil.copyfile('./test/resources/0041.xml', path)
+    shutil.copyfile('./tests/resources/0041.xml', path)
     return str(path)
 
 
@@ -181,7 +181,7 @@ def fixture_create_tmp_500_gray(tmpdir):
     """create tmp data from file 500_gray00003.xml"""
 
     path = tmpdir.mkdir("xml").join("input.xml")
-    shutil.copyfile('./test/resources/500_gray00003.xml', path)
+    shutil.copyfile('./tests/resources/500_gray00003.xml', path)
     return path
 
 
@@ -269,7 +269,7 @@ def test_remove_succeeded(path_tiff):
     """Test remove success"""
 
     # arrange
-    path_tmp = './test/resources/tmp_gray00001.tif'
+    path_tmp = './tests/resources/tmp_gray00001.tif'
     shutil.copyfile(path_tiff, path_tmp)
     step = StepPostRemoveFile(path_tmp, 'tif')
 
@@ -357,7 +357,7 @@ def test_service_down(empty_ocr):
 def test_step_estimateocr_lines_and_tokens():
     """Test behavior of for valid ALTO-output"""
 
-    test_data = os.path.join('test', 'resources', '500_gray00003.xml')
+    test_data = os.path.join('tests', 'resources', '500_gray00003.xml')
 
     # act
     # pylint: disable=protected-access

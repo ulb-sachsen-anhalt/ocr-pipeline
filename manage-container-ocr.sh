@@ -7,7 +7,7 @@ set -xu
 # Script constants
 #
 LOGGER="ocr"
-OCR_ROOT_DIR=/data/ocr
+OCR_ROOT_DIR=/data/ocr/zd1
 OCR_HOST=/opt/ulb/ocr
 OCR_STAGE_PREV="meta_done"
 OCR_STAGE_BUSY="ocr_busy"

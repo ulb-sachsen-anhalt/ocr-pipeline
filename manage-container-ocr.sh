@@ -83,7 +83,7 @@ function process_open_folders {
 
         # set marker
         mv "${OPEN_FOLDER}/${OCR_STAGE_PREV}" "${OPEN_FOLDER}/${OCR_STAGE_BUSY}"
-        echo "state ${BUSY_STATE} in '${OPEN_FOLDER}' at $(date '+%Y-%m-%d_%H:%M:%S')" >> "${OPEN_FOLDER}/${OCR_STAGE_BUSY}"
+        echo "state ${BUSY_STATE} : $(hostname):${OPEN_FOLDER}' at $(date '+%Y-%m-%d_%H:%M:%S')" >> "${OPEN_FOLDER}/${OCR_STAGE_BUSY}"
     else
         INFO=$(echo "${IS_RUNNING}" | awk '{print $1} {print $8} {print $9} {print $10}')
         NOTE=""

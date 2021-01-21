@@ -2,8 +2,8 @@
 
 set -eu
 
-IMAGE_NAME=$1
-TESSERACT_RELEASE=$2
+IMAGE_NAME=${1/:*/}
+TESSERACT_RELEASE=${1/*:/}
 DOCKER_CONF=Dockerfile
 TESSERACT_REPOSITORY=https://github.com/ulb-sachsen-anhalt/tesseract.git
 

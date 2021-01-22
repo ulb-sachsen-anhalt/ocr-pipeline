@@ -11,6 +11,7 @@ import os
 import pathlib
 import sys
 import time
+import json
 
 from lib.ocr_step import (
     StepTesseract,
@@ -199,7 +200,8 @@ def _execute_pipeline(start_path):
 
     try:
         # forward to tesseract
-        args = {'--dpi': DPI, '-l': MODEL_CONFIG, 'alto': None}
+        # args = {'--dpi': DPI, '-l': MODEL_CONFIG, 'alto': None}
+        args = TESSERACT_ARGS
         step_tesseract = StepTesseract(next_in, args, path_out_folder=WORK_DIR)
         step_label = type(step_tesseract).__name__
         step_tesseract.update_cmd()
@@ -292,6 +294,8 @@ if __name__ == '__main__':
     APP_ARGUMENTS.add_argument(
         "-d", "--dpi", required=False, help="DPI for pipeline")
     APP_ARGUMENTS.add_argument(
+        "-x", "--extra", required=False, help="Parameter for tesseract as json-dict")
+    APP_ARGUMENTS.add_argument(
         "-e", "--executors", required=False, help="N of Pipeline Executors")
     ARGS = vars(APP_ARGUMENTS.parse_args())
 
@@ -307,32 +311,43 @@ if __name__ == '__main__':
     # setup workdir
     WORK_DIR = pipeline.prepare_workdir(ARGS["workdir"])
 
-    #
-    # setup some more pipeline parameters
-    #
+    TESSERACT_ARGS=json.loads(ARGS['extra'])
+
+    if ARGS['models'] or ARGS['dpi']:
+        pipeline.log(
+            'warning',
+            """parameter 'models' and 'dpi' are deprecated,
+            please use 'extra' argument with json value"""
+            )
+
     # resolution
-    if ARGS['dpi'] is not None:
-        DPI = ARGS['dpi']
-    else:
-        DPI = pipeline.get('pipeline', 'dpi')
+    if '--dpi' not in TESSERACT_ARGS:
+        dpi = pipeline.get('pipeline', 'dpi')
+        TESSERACT_ARGS['--dpi'] = dpi
+        pipeline.log(
+            'warning', f"no dpi config set, use configuration '{dpi}'")
+
+    # special model configuration
+    if '-l' not in TESSERACT_ARGS:
+        model_config = pipeline.get('pipeline', 'model_configs')
+        TESSERACT_ARGS['-l'] = model_config
+        pipeline.log(
+            'warning', f"no model config set, use configuration '{model_config}'")
+
     # size of process pool
     if ARGS['executors'] is not None:
         WORKER = int(ARGS['executors'])
     else:
         WORKER = int(pipeline.get('pipeline', 'executors'))
-    # special model configuration
-    MODEL_CONFIG = ARGS["models"]
-    if not MODEL_CONFIG:
-        MODEL_CONFIG = pipeline.get('pipeline', 'model_configs')
-        pipeline.log(
-            'warning', f"no model config set, use configuration '{MODEL_CONFIG}'")
 
     # read and sort image files
     IMAGE_PATHS = pipeline.get_images_sorted()
 
     # debugging output
-    START_MSG_1 = f"ocr {len(IMAGE_PATHS)} scans (dpi:{DPI}) at '{SCANDATA_PATH}' in '{WORK_DIR}'"
-    START_MSG_2 = f"use '{WORKER}' execs with conf '{MODEL_CONFIG}'"
+    dpi = TESSERACT_ARGS['--dpi']
+    model_config = TESSERACT_ARGS['-l']
+    START_MSG_1 = f"ocr {len(IMAGE_PATHS)} scans (dpi:{dpi}) at '{SCANDATA_PATH}' in '{WORK_DIR}'"
+    START_MSG_2 = f"use '{WORKER}' execs with conf '{model_config}'"
     pipeline.log('info', START_MSG_1)
     pipeline.log('info', START_MSG_2)
 

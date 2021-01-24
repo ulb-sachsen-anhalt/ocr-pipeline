@@ -26,6 +26,8 @@ from lib.ocr_step import (
 # python process-wrapper
 os.environ['OMP_THREAD_LIMIT'] = '1'
 
+MARK_MISSING_ESTM = -1
+
 
 class OCRPipeline():
     """Wrap configuration"""
@@ -38,7 +40,7 @@ class OCRPipeline():
             conf_file = os.path.join(project_dir, 'conf', 'ocr_config.ini')
         read_files = self.cfg.read(conf_file)
         if not read_files:
-            raise Exception('Error: Missing Pipeline-Configuration!')
+            raise ValueError('Error: Missing Pipeline-Configuration!')
         self._init_logger()
 
     def get(self, section, option):
@@ -254,9 +256,6 @@ def _execute_pipeline(start_path):
                         result = pipeline.profile(step_estm.execute)
                         pipeline.log('debug', f"[{image_name}] step {result}")
                         result = step_estm.get()
-                        (wtr, nws, nes, nin, nwraps, nss, nout) = result
-                        l_e = f"[{image_name}] WTR '{wtr}' ({nes}/{nws}, {nin}=>[{nwraps},{nss}]=>{nout})"
-                        pipeline.log('info', l_e)
                     except StepException as exc:
                         pipeline.log(
                             'warning', f"Error at '{step_label}: {exc}")
@@ -268,9 +267,13 @@ def _execute_pipeline(start_path):
         step_move_alto.execute()
 
         if result is not None:
+            (wtr, nws, nes, nin, nwraps, nss, nout) = result
+            l_e = f"[{image_name}] WTR '{wtr}' ({nes}/{nws}, {nin}=>[{nwraps},{nss}]=>{nout})"
+            pipeline.log('info', l_e)
             return (image_name, wtr, nws, nes, nin, nwraps, nss, nout)
-        else:
-            return (image_name, -1)
+
+        # if estimation result missing, just return image name and missing mark "-1"
+        return (image_name, MARK_MISSING_ESTM)
 
     except StepException as exc:
         pipeline.log('error', f"[{start_path}] {step_label}: {exc}")
@@ -341,7 +344,7 @@ if __name__ == '__main__':
     try:
         with concurrent.futures.ProcessPoolExecutor(max_workers=WORKER) as executor:
             ESTIMATIONS = list(executor.map(_execute_pipeline, IMAGE_PATHS))
-            estimations = [r for r in ESTIMATIONS if r[1] > -1]
+            estimations = [r for r in ESTIMATIONS if r[1] > MARK_MISSING_ESTM]
             if estimations:
                 pipeline.store_estimations(estimations)
             else:
@@ -350,7 +353,7 @@ if __name__ == '__main__':
 
     except OSError as exc:
         pipeline.log('error', str(exc))
-        raise OSError(exc)
+        raise OSError from exc
 
     DELTA_TS = (time.time()) - START_TS
     MSG_RT = f'{DELTA_TS:.2f} sec ({math.floor(DELTA_TS/60)}min {math.floor(DELTA_TS % 60)}sec)'

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -xu
+set -eu
 
 
 ##################

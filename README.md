@@ -6,29 +6,40 @@ OCR-System of project "Digitalisierung historischer deutscher Zeitungen" (2019-2
 
 ## Installation
 
-Target Build and Runtime Platform: [Docker Container](https://www.docker.com/get-started) on [Ubuntu 18.04 LTS Server](https://ubuntu.com/#download)
+### Requirements
 
-### Host Specifications
+* [Docker Container](https://www.docker.com/get-started)
+* [Ubuntu 18.04 LTS Server](https://ubuntu.com/#download) or higher
 
-* docker-ce (container image creation and container runtime)
-* optional: libsm6 (if OpenCV used)
-* optional: python3-venv (if Python is used outside Container, i.e. running Tests)
-* optional: gitlab-runner with shell executor for CI/CD-based workflows
+optional:
+* libsm6 (if OpenCV used)
+* python3-venv (if Python is used outside Container, i.e. running Tests)
 
-### Build Image
+#### Hardware recommendation
+
+Minimal:
+* 8GB RAM
+* quadcore processor
+
+Recommended:
+* 16GB RAM
+* sixteen-core processor
+
+### Build container image
 
 The OCR-Container is built in 2 stages.
 
+All dockerfiles can be found in the [container](https://github.com/ulb-sachsen-anhalt/ocr-pipeline/tree/master/container) folder.
 The base image contains a self-compiled version of Tesseract, cloned from <https://github.com/ulb-sachsen-anhalt/tesseract> plus localization and additional Tesseract model configuration files like `frk` and `Fraktur`. This is extended in step 2 with the actual OCR-Container. It puts the scripts in place, declares an entrypoint and takes care of internal structures that can be mapped at runtime to external images, workdir and logdir folders.
 
 ```shell
-# 1st: build base image from official Tesseract Release Tag and with desired image name
-./create-baseimage.sh 4.1.1 ulb-tesseract
-=> ulb-tesseract:4.1.1
+# 1st: build base image from official Tesseract Release Tag and with desired image name. We're using 4.1.1 until a new stable version is released.
+./create-baseimage.sh my-tesseract:4.1.1
+=> my-tesseract:4.1.1
 
 # 2nd: build ocr system image using the previously created base image + tag and desired name and version tag
-./create-image.sh ulb-tesseract 4.1.1 ulb-ocr-system 1.0.0
-=> ulb-ocr-system:1.0.0
+./create-image.sh my-tesseract:4.1.1 my-ocr-system:1.0.0
+=> my-ocr-system:1.0.0
 
 ```
 

@@ -206,7 +206,7 @@ def _execute_pipeline(start_path):
         step_label = type(step_tesseract).__name__
         step_tesseract.update_cmd()
         pipeline.log(
-            'debug', f"[{image_name}] tesseract args {step_tesseract.cmd}'")
+            'debug', f"[{image_name}] tesseract args {step_tesseract.cmd}")
         result = pipeline.profile(step_tesseract.execute)
         pipeline.log('debug', f"[{image_name}] step {result}")
         next_in = step_tesseract.path_out

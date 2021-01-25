@@ -138,7 +138,7 @@ function recreate_container {
     --network host \
     --mount type=bind,source="${OCR_SCANDATA_HOST}",target="${OCR_SCANDATA_CONT}" \
     --mount type=bind,source="${OCR_HOST_WORKDIR}",target="${OCR_CNT_WORKDIR}" \
-    --mount type=bind,source="${OCR_HOST}"/logdir,target="${OCR_CNT}"/logdir \
+    --mount type=bind,source="${OCR_HOST}"/logdir,target=/tmp/ocr-pipeline-log/logdir \
     "${CONTAINER_IMAGE}" python3 ocr_pipeline.py -s "${OCR_SCANDATA_CONT}" -w "${OCR_CNT}/workdir" -e "${EXECUTORS}" -m "${MODEL_CONFIG}" -d "${DPI}"
 
 

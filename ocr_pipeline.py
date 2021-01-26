@@ -255,7 +255,7 @@ def _execute_pipeline(start_path):
         step_label = type(step_tesseract).__name__
         step_tesseract.update_cmd()
         pipeline.log(
-            'debug', f"[{image_name}] tesseract args {step_tesseract.cmd}'")
+            'debug', f"[{image_name}] tesseract args {step_tesseract.cmd}")
         result = pipeline.profile(step_tesseract.execute)
         pipeline.log('debug', f"[{image_name}] step {result}")
         next_in = step_tesseract.path_out
@@ -308,7 +308,7 @@ def _execute_pipeline(start_path):
                     except StepException as exc:
                         pipeline.log(
                             'warning', f"Error at '{step_label}: {exc}")
-                        sys.exit(1)
+                        # sys.exit(1)
 
         # move ALTO Data
         step_move_alto = StepPostMoveAlto(next_in, start_path)

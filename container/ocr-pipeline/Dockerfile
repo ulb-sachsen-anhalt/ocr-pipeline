@@ -8,7 +8,7 @@ FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG}
 ARG DEBIAN_FRONTEND=noninteractive
 
 # set target OCR_ROOT
-ENV OCR_ROOT /opt/ulb/ocr
+ENV OCR_ROOT /opt/ocr-pipeline
 
 # update software repositories
 RUN ["apt-get", "update"]
@@ -22,10 +22,15 @@ RUN apt-get update && apt-get install -y \
     libxrender-dev
 
 # create OCR_ROOT dir inside container ...
-RUN ["mkdir", "-p", "/opt/ulb/ocr"]
+RUN ["mkdir", "-p", "${OCR_ROOT}"]
 
 # ... and now enter target dir
 WORKDIR ${OCR_ROOT}
+
+# for workdir use same folder as on host
+RUN ["mkdir", "workdir"]
+# for logs use same folder as on host
+RUN ["mkdir", "logdir"]
 
 # copy application data into workdir
 COPY ./ocr_pipeline.py .
@@ -39,8 +44,4 @@ COPY ./model/${TESS_MODEL} /usr/local/share/tessdata
 
 # create scandata target folder inside container
 # for scandata root use same folder name as on host
-RUN ["mkdir", "/home/ocr"]
-# for workdir use same folder as on host
-RUN ["mkdir", "/opt/ulb/ocr/workdir"]
-# for logs use same folder as on host
-RUN ["mkdir", "/opt/ulb/ocr/logdir"]
+RUN ["mkdir", "/data"]

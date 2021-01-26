@@ -15,16 +15,13 @@ BASE_IMAGE=${1/:*/}
 BASE_IMAGE_TAG=${1/*:/}
 IMAGE=${2/:*/}
 IMAGE_TAG=${2/*:/}
-CONTAINER_NAME=$3
-TESS_MODEL=$4
+TESS_MODEL=$3
 
 #
-# clear eventually existing images and containers
+# clear eventually existing image
 # 
-# throw container away to be able to delete preceeding image, too
-docker rm --force "${CONTAINER_NAME}" || echo "[INFO] no container named ${CONTAINER_NAME} existing ... "
 # remove container image or note absence
-docker image rm "${IMAGE}:${IMAGE_TAG}" || echo "[WARN] no image ${IMAGE}:${IMAGE_TAG} existing ... "
+docker image rm --force "${IMAGE}:${IMAGE_TAG}" || echo "[WARN] no image ${IMAGE}:${IMAGE_TAG} existing ... "
 
 # go to project root dir for full build context
 cd ../..

@@ -4,7 +4,6 @@
 import argparse
 import concurrent.futures
 import configparser
-from functools import reduce
 import logging
 import logging.config
 import math
@@ -80,10 +79,10 @@ class OCRPipeline():
                 self.cfg.set('step_tesseract', 'model_configs',
                              tess_xtra_args_dict['-l'])
                 del tess_xtra_args_dict['-l']
-
             # make extra dict flat
-            xtra_args = reduce(lambda c, p: f"{c} {p}", [
-                               f"{k} {v}" for k, v in tess_xtra_args_dict.items()])
+            xtra_args = ' '.join(
+                [f"{k} {v}" for k, v in tess_xtra_args_dict.items()])
+
             self.cfg['step_tesseract']['extra'] = xtra_args
 
         # debugging output
@@ -247,9 +246,9 @@ def _execute_pipeline(start_path):
     try:
         # forward to tesseract
         tess_args_raw = pipeline.cfg['step_tesseract']
-        tess_args = {'--dpi': tess_args_raw.getint('dpi'), 
-                     tess_args_raw.get('extra'): None, 
-                     '-l': tess_args_raw.get('model_configs'), 
+        tess_args = {'--dpi': tess_args_raw.getint('dpi'),
+                     tess_args_raw.get('extra'): None,
+                     '-l': tess_args_raw.get('model_configs'),
                      tess_args_raw.get('output_configs'): None}
         step_tesseract = StepTesseract(
             next_in, tess_args, path_out_folder=pipeline.cfg.get('pipeline', 'workdir'))

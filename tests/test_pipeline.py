@@ -4,6 +4,7 @@
 import os
 import shutil
 import tempfile
+import configparser
 
 import pytest
 
@@ -75,8 +76,13 @@ def test_ocr_pipeline_config_merged(default_pipeline):
     """check how mix of config and cli-args interfere"""
 
     # arrange
-    args = {"scandata": "/tmp/ocr-pipeline", "executors": "2",
-            "extra": "{\"--tessdata-dir\":\"/usr/share/tesseract-ocr/4.00/tessdata\", \"--dpi\":\"451\", \"--psm\":\"13\"}"}
+    args = {"scandata": "/tmp/ocr-pipeline", 
+            "executors": "2",
+            "extra": """{
+                "--tessdata-dir": "/usr/share/tesseract-ocr/4.00/tessdata",
+                "--dpi": "451",
+                "--psm": "13"}"""
+            }
 
     # act
     pipeline = default_pipeline
@@ -84,8 +90,36 @@ def test_ocr_pipeline_config_merged(default_pipeline):
 
     # assert
     assert pipeline.cfg['step_tesseract']
-    assert pipeline.cfg['step_tesseract']['extra'] == "--tessdata-dir /usr/share/tesseract-ocr/4.00/tessdata --psm 13"
+    extra = "--tessdata-dir /usr/share/tesseract-ocr/4.00/tessdata --psm 13"
+    assert pipeline.cfg['step_tesseract']['extra'] == extra
     assert pipeline.cfg.getint('step_tesseract', 'dpi') == 451
+    assert True
+
+
+def test_ocr_pipeline_config_merge_missing(default_pipeline):
+    """check how mix of config and cli-args with missing dpi"""
+
+    cp = configparser.ConfigParser()
+    test_dir = os.path.dirname(os.path.dirname(__file__))
+    conf_file = os.path.join(test_dir, 'conf', 'ocr_config.ini')
+    cp.read(conf_file)
+
+    # arrange
+    args = {"scandata": "/tmp/ocr-pipeline",
+            "executors": "2",
+            "extra": '{"oem":"1"}'}
+
+    # act
+    pipeline = default_pipeline
+    pipeline.merge_args(args)
+
+    # assert
+    assert pipeline.cfg['step_tesseract']
+    assert pipeline.cfg['step_tesseract']['extra'] == "oem 1"
+    assert pipeline.cfg.getint('step_tesseract', 'dpi')\
+        == int(cp['step_tesseract']['dpi'])
+    assert pipeline.cfg['step_tesseract']['model_configs']\
+        == cp['step_tesseract']['model_configs']
 
 
 def test_ocr_pipeline_mark_done(default_pipeline):

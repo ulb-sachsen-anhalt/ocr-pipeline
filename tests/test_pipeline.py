@@ -52,7 +52,7 @@ def test_ocr_pipeline_default_config(default_pipeline):
     assert pipeline
     assert pipeline.get('pipeline', 'executors') == '8'
     assert pipeline.get('pipeline', 'logger_name') == 'ocr_pipeline'
-    assert pipeline.get('pipeline', 'image_ext') == 'tif,jpg,png'
+    assert pipeline.get('pipeline', 'image_ext') == 'tif,jpg,png,jpeg'
     assert pipeline.get('step_language_tool', 'language') == 'de-DE'
     assert pipeline.get('step_language_tool',
                         'enabled_rules') == 'GERMAN_SPELLER_RULE'

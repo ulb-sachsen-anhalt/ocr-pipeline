@@ -266,7 +266,6 @@ def _execute_pipeline(start_path):
                     except StepException as exc:
                         pipeline.log(
                             'warning', f"Error at '{step_label}: {exc}")
-                        # sys.exit(1)
 
         # move ALTO Data
         step_move_alto = StepPostMoveAlto(next_in, start_path)

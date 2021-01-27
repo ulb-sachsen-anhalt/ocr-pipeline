@@ -201,7 +201,12 @@ class OCRPipeline():
         return sorted(image_paths)
 
 
-def _execute_pipeline(start_path):
+def _execute_pipeline(start_path, data):
+    DPI = data['DPI']
+    MODEL_CONFIG = data['MODEL_CONFIG']
+    WORK_DIR = data['WORK_DIR']
+    pipeline = data['pipeline']
+
     next_in = start_path
     step_label = 'start'
     image_name = os.path.basename(start_path)
@@ -291,6 +296,7 @@ def _execute_pipeline(start_path):
 
 # main entry point
 if __name__ == '__main__':
+    DATA = {}
     APP_ARGUMENTS = argparse.ArgumentParser()
     APP_ARGUMENTS.add_argument(
         "-s", "--scandata", required=True, help="path to scandata")
@@ -312,9 +318,11 @@ if __name__ == '__main__':
 
     # create ocr pipeline wrapper instance
     pipeline = OCRPipeline(SCANDATA_PATH)
+    DATA['pipeline'] = pipeline
 
     # setup workdir
     WORK_DIR = pipeline.prepare_workdir(ARGS["workdir"])
+    DATA['WORK_DIR'] = WORK_DIR
 
     #
     # setup some more pipeline parameters
@@ -324,6 +332,8 @@ if __name__ == '__main__':
         DPI = ARGS['dpi']
     else:
         DPI = pipeline.get('pipeline', 'dpi')
+    DATA['DPI'] = DPI
+
     # size of process pool
     if ARGS['executors'] is not None:
         WORKER = int(ARGS['executors'])
@@ -335,6 +345,7 @@ if __name__ == '__main__':
         MODEL_CONFIG = pipeline.get('pipeline', 'model_configs')
         pipeline.log(
             'warning', f"no model config set, use configuration '{MODEL_CONFIG}'")
+    DATA['MODEL_CONFIG'] = MODEL_CONFIG
 
     # read and sort image files
     IMAGE_PATHS = pipeline.get_images_sorted()
@@ -349,7 +360,13 @@ if __name__ == '__main__':
     # perform sequential part of pipeline with parallel processing
     try:
         with concurrent.futures.ProcessPoolExecutor(max_workers=WORKER) as executor:
-            ESTIMATIONS = list(executor.map(_execute_pipeline, IMAGE_PATHS))
+            # ESTIMATIONS = list(executor.map(_execute_pipeline, IMAGE_PATHS))
+
+            ESTIMATIONS = []
+            for img in IMAGE_PATHS:
+                r = executor.submit(_execute_pipeline, img, DATA)
+                ESTIMATIONS.append(r.result())
+
             estimations = [r for r in ESTIMATIONS if r[1] > MARK_MISSING_ESTM]
             if estimations:
                 pipeline.store_estimations(estimations)

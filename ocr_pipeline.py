@@ -59,7 +59,7 @@ class OCRPipeline():
         logger_folder = self.cfg.get('pipeline', 'logdir', fallback=fallback)
         right_now = time.strftime('%Y-%m-%d_%H-%M', time.localtime())
         # path exists but cant be written
-        if not os.path.exists(logger_folder) or not os.access(logger_folder, os.W_OK):
+        if not (os.path.exists(logger_folder) and os.access(logger_folder, os.W_OK)):
             logger_folder = fallback
             # use default project log path
             # create if not existing

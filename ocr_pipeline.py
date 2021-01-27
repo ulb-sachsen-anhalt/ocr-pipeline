@@ -11,6 +11,7 @@ import os
 import pathlib
 import sys
 import time
+import tempfile
 
 from lib.ocr_step import (
     StepTesseract,
@@ -54,11 +55,12 @@ class OCRPipeline():
         return self.scandata_path
 
     def _init_logger(self):
-        logger_folder = self.cfg.get('pipeline', 'logdir', fallback='/tmp/ocr-pipeline-log')
+        fallback = os.path.join(tempfile.gettempdir(), 'ocr-pipeline-log')
+        logger_folder = self.cfg.get('pipeline', 'logdir', fallback=fallback)
         right_now = time.strftime('%Y-%m-%d_%H-%M', time.localtime())
         # path exists but cant be written
         if not os.path.exists(logger_folder) or not os.access(logger_folder, os.W_OK):
-            logger_folder = '/tmp/ocr-pipeline-log'
+            logger_folder = fallback
             # use default project log path
             # create if not existing
             if not os.path.exists(logger_folder):

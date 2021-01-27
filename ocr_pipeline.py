@@ -115,17 +115,24 @@ class OCRPipeline():
     def prepare_workdir(self, workdir=None):
         """prepare workdir: create or clear if necessary"""
 
-        workd = workdir
-        if not workd:
-            workd = self.cfg.get('pipeline', 'workdir')
+        workdir_tmp = workdir
+        if not workdir_tmp:
+            self.log('warning', f"no workdir set, use conf: {workdir_tmp}")
+            workdir_tmp = self.cfg.get('pipeline', 'workdir')
 
-        if not os.path.isdir(workd):
-            os.makedirs(workd)
-            self.log('warning', f"workdir not provided, use conf {workd}")
+        if not os.path.isdir(workdir_tmp):
+            if os.access(workdir_tmp, os.W_OK):
+                os.makedirs(workdir_tmp)
+            else:
+                self.log('warning', f"workdir {workdir_tmp} not writable, use tmp dir")
+                workdir_tmp = '/tmp/ocr-pipeline-workdir'
+                if os.path.exists(workdir_tmp):
+                    self._clean_workdir(workdir_tmp)
+                os.makedirs(workdir_tmp, exist_ok=True)
         else:
-            self._clean_workdir(workd)
+            self._clean_workdir(workdir_tmp)
 
-        return workd
+        return workdir_tmp
 
     def _clean_workdir(self, the_dir):
         """clear previous work artifacts"""

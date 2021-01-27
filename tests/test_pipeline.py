@@ -108,7 +108,7 @@ def test_ocr_pipeline_prepare_workdir(default_pipeline):
     workdir = default_pipeline.prepare_workdir()
 
     # assert
-    assert workdir == '/tmp/ocr-pipeline-work'
+    assert workdir == '/tmp/ocr-pipeline-workdir'
 
 
 def test_ocr_pipeline_profile(default_pipeline):

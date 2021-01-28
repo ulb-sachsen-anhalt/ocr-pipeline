@@ -93,7 +93,6 @@ def test_ocr_pipeline_config_merged(default_pipeline):
     extra = "--tessdata-dir /usr/share/tesseract-ocr/4.00/tessdata --psm 13"
     assert pipeline.cfg['step_tesseract']['extra'] == extra
     assert pipeline.cfg.getint('step_tesseract', 'dpi') == 451
-    assert True
 
 
 def test_ocr_pipeline_config_merge_missing(default_pipeline):

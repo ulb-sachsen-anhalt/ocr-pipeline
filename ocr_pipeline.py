@@ -53,9 +53,11 @@ class OCRPipeline():
     def merge_args(self, arguments):
         """Merge configuration with CLI arguments"""
 
-        # self.cfg.set('pipeline', 'scandir', arguments['scandata'])
         if 'workdir' in arguments and arguments['workdir']:
             self.cfg.set('pipeline', 'workdir', arguments["workdir"])
+
+        if 'dpi' in arguments and arguments['dpi']:
+            self.cfg.set('step_tesseract', 'dpi', arguments["dpi"])
 
         if 'executors' in arguments and arguments['executors']:
             self.cfg['pipeline']['executors'] = arguments['executors']
@@ -253,12 +255,14 @@ def _execute_pipeline(start_path):
     try:
         # forward to tesseract
         tess_args_raw = pipeline.cfg['step_tesseract']
-        tess_args = {'--dpi': tess_args_raw.getint('dpi'),
-                     tess_args_raw.get('extra'): None,
-                     '-l': tess_args_raw.get('model_configs'),
-                     tess_args_raw.get('output_configs'): None}
-        step_tesseract = StepTesseract(
-            next_in, tess_args, path_out_folder=pipeline.cfg.get('pipeline', 'workdir'))
+        tess_args = {'--dpi': tess_args_raw.getint('dpi')}
+        if 'extra' in tess_args_raw and tess_args_raw['extra']:
+            tess_args[tess_args_raw.get('extra')] = None
+        tess_args['-l'] = tess_args_raw.get('model_configs')
+        tess_args[tess_args_raw.get('output_configs')] = None
+
+        workdir = pipeline.cfg.get('pipeline', 'workdir')
+        step_tesseract = StepTesseract(next_in, tess_args, path_out_folder=workdir)
         step_label = type(step_tesseract).__name__
         step_tesseract.update_cmd()
         pipeline.log(

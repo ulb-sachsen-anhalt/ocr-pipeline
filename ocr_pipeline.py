@@ -53,9 +53,11 @@ class OCRPipeline():
     def merge_args(self, arguments):
         """Merge configuration with CLI arguments"""
 
-        # self.cfg.set('pipeline', 'scandir', arguments['scandata'])
         if 'workdir' in arguments and arguments['workdir']:
             self.cfg.set('pipeline', 'workdir', arguments["workdir"])
+
+        if 'dpi' in arguments and arguments['dpi']:
+            self.cfg.set('step_tesseract', 'dpi', arguments["dpi"])
 
         if 'executors' in arguments and arguments['executors']:
             self.cfg['pipeline']['executors'] = arguments['executors']

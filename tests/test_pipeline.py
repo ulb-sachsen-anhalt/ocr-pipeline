@@ -76,7 +76,7 @@ def test_ocr_pipeline_config_merged(default_pipeline):
     """check how mix of config and cli-args interfere"""
 
     # arrange
-    args = {"scandata": "/tmp/ocr-pipeline", 
+    args = {"scandata": "/tmp/ocr-pipeline",
             "executors": "2",
             "extra": """{
                 "--tessdata-dir": "/usr/share/tesseract-ocr/4.00/tessdata",
@@ -162,7 +162,8 @@ def test_ocr_pipeline_prepare_workdir(default_pipeline):
     default_pipeline.prepare_workdir()
 
     # assert
-    assert default_pipeline.cfg.get('pipeline', 'workdir') == '/opt/ocr-pipeline/workdir'
+    assert default_pipeline.cfg.get('pipeline', 'workdir')\
+        == '/opt/ocr-pipeline/workdir'
 
 
 def test_ocr_pipeline_profile(default_pipeline):

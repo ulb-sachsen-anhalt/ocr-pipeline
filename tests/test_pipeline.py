@@ -4,6 +4,7 @@
 import os
 import shutil
 import tempfile
+import configparser
 
 import pytest
 
@@ -15,6 +16,7 @@ RES_0001_TIF = "0001.tif"
 RES_0002_PNG = "0002.png"
 RES_0003_JPG = "0003.jpg"
 RES_00041_XML = './tests/resources/0041.xml'
+
 
 @pytest.fixture(name="default_pipeline")
 def create_default_pipeline(tmpdir):
@@ -52,7 +54,8 @@ def test_ocr_pipeline_default_config(default_pipeline):
     assert pipeline.get('pipeline', 'logger_name') == 'ocr_pipeline'
     assert pipeline.get('pipeline', 'image_ext') == 'tif,jpg,png,jpeg'
     assert pipeline.get('step_language_tool', 'language') == 'de-DE'
-    assert pipeline.get('step_language_tool', 'enabled_rules') == 'GERMAN_SPELLER_RULE'
+    assert pipeline.get('step_language_tool',
+                        'enabled_rules') == 'GERMAN_SPELLER_RULE'
 
     # act again
     pipeline.log('info', 'this is a test log info message')
@@ -60,12 +63,63 @@ def test_ocr_pipeline_default_config(default_pipeline):
     # assert log data
     tld = os.path.join(tempfile.gettempdir(), 'ocr-pipeline-log')
     assert os.path.exists(tld)
-    log_files = [os.path.join(tld, f) for f in os.listdir(tld) if str(f).endswith('.log')]
+    log_files = [os.path.join(tld, f)
+                 for f in os.listdir(tld) if str(f).endswith('.log')]
     log_files.sort(key=os.path.getmtime)
     assert log_files[0]
     with open(os.path.join(tld, log_files[0]), 'r') as f_han:
-        entry = f_han.readlines()[1].strip()
+        entry = f_han.readlines()[4].strip()
         assert entry.endswith('[INFO ] this is a test log info message')
+
+
+def test_ocr_pipeline_config_merged(default_pipeline):
+    """check how mix of config and cli-args interfere"""
+
+    # arrange
+    args = {"scandata": "/tmp/ocr-pipeline", 
+            "executors": "2",
+            "extra": """{
+                "--tessdata-dir": "/usr/share/tesseract-ocr/4.00/tessdata",
+                "--dpi": "451",
+                "--psm": "13"}"""
+            }
+
+    # act
+    pipeline = default_pipeline
+    pipeline.merge_args(args)
+
+    # assert
+    assert pipeline.cfg['step_tesseract']
+    extra = "--tessdata-dir /usr/share/tesseract-ocr/4.00/tessdata --psm 13"
+    assert pipeline.cfg['step_tesseract']['extra'] == extra
+    assert pipeline.cfg.getint('step_tesseract', 'dpi') == 451
+    assert True
+
+
+def test_ocr_pipeline_config_merge_missing(default_pipeline):
+    """check how mix of config and cli-args with missing dpi"""
+
+    cp = configparser.ConfigParser()
+    test_dir = os.path.dirname(os.path.dirname(__file__))
+    conf_file = os.path.join(test_dir, 'conf', 'ocr_config.ini')
+    cp.read(conf_file)
+
+    # arrange
+    args = {"scandata": "/tmp/ocr-pipeline",
+            "executors": "2",
+            "extra": '{"oem":"1"}'}
+
+    # act
+    pipeline = default_pipeline
+    pipeline.merge_args(args)
+
+    # assert
+    assert pipeline.cfg['step_tesseract']
+    assert pipeline.cfg['step_tesseract']['extra'] == "oem 1"
+    assert pipeline.cfg.getint('step_tesseract', 'dpi')\
+        == int(cp['step_tesseract']['dpi'])
+    assert pipeline.cfg['step_tesseract']['model_configs']\
+        == cp['step_tesseract']['model_configs']
 
 
 def test_ocr_pipeline_mark_done(default_pipeline):
@@ -75,7 +129,7 @@ def test_ocr_pipeline_mark_done(default_pipeline):
     default_pipeline.mark_done()
 
     # assert
-    default_scanpath = default_pipeline.scanpath()
+    default_scanpath = default_pipeline.scandata_path
     new_mark_path = os.path.join(default_scanpath, 'ocr_done')
     assert os.path.exists(new_mark_path)
     with open(new_mark_path, 'r') as f_han:
@@ -89,7 +143,7 @@ def test_ocr_pipeline_get_images(default_pipeline):
 
     # act
     images = default_pipeline.get_images_sorted()
-    default_scanpath = default_pipeline.scanpath()
+    default_scanpath = default_pipeline.scandata_path
 
     # assert
     assert images
@@ -105,17 +159,17 @@ def test_ocr_pipeline_prepare_workdir(default_pipeline):
     """check default workspace setup"""
 
     # act
-    workdir = default_pipeline.prepare_workdir()
+    default_pipeline.prepare_workdir()
 
     # assert
-    assert workdir == '/tmp/ocr-pipeline-workdir'
+    assert default_pipeline.cfg.get('pipeline', 'workdir') == '/opt/ocr-pipeline/workdir'
 
 
 def test_ocr_pipeline_profile(default_pipeline):
     """check profiling"""
 
     # arrange
-    # pylint: disable=missing-class-docstring,too-few-public-methods 
+    # pylint: disable=missing-class-docstring,too-few-public-methods
     class InnerClass:
 
         # pylint: disable=missing-function-docstring,no-self-use

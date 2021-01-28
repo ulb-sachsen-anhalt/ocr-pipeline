@@ -7,8 +7,8 @@ OCR-System of project "Digitalisierung historischer deutscher Zeitungen" (2019-2
 ## Features
 
 * configuration
-  * OCR pipeline `config/ocr_config.ini`
-  * logging `config/ocr_logger_config.ini`
+  * OCR pipeline `conf/ocr_config.ini`
+  * logging `conf/ocr_logger_config.ini`
 * supports custom Tesseract models
 * run in Docker for mass digitisation purposes
 * run locally for evaluation and testing
@@ -66,7 +66,11 @@ python ./ocr_pipeline.py --scandata <required> --workdir <optional, default is l
 
 ### Setup
 
-For local development, an installation of Python3 (version 3.6+) is required. For coding assistance, supply your favourite IDE with Python support. If you don't know which one to choose, we recommend [Visual Studio Code](https://code.visualstudio.com/). The Development OS was Ubuntu 18.04, but Windows with similar Python version should do the job fine.
+For local development, an installation of Python3 (version 3.6+) is required. For coding assistance, supply your favourite IDE with Python support. If you don't know which one to choose, we recommend [Visual Studio Code](https://code.visualstudio.com/). The Development started on Ubuntu 18.04 with Python 3.6.
+
+The Tesseract Instances use Python's `concurrent.futures.ProcessPoolExecutor` implementation and are therefore plattform dependent. It has issues both on Mac OS (Mojave) and Windows (10) and also depends on the specific Python Version.  
+
+For local development it's also required to have a local Tesseract Installation with any required model configurations. 
 
 Activate virtual Python environment and install required libraries on a Windows System:
 
@@ -88,8 +92,10 @@ Afterwards, the [pytest Library](https://docs.pytest.org/en/latest/contents.html
 pytest -v
 ```
 
-## Container management
+## OCR as part of Digitalization Pipelines
 
-The script `manage-container-ocr.sh` forms the OCR part of a larger digitization pipeline which spans itself from the image source to delivering data towards the final presentation system of the library.
+OCR is usually just a part of larger Digitalization Workflows. 
+
+The script `manage-container-ocr.sh` forms the OCR part of the Digitization Workflow at ULB Sachsen-Anhalt, which spans itself from the image source to delivering data towards the final presentation system of the library. These integration may differ in other Digitalization contexts, when the OCR Process is triggered by different mechanics.
 
 Data delivery to the host system is scheduled via cronjobs. When triggered, it's searching a small marker file called `meta_done`, which represents the previous stage in the workflow. After running the OCR-System, this marker file is moved on as `ocr_done`, which indicates the following step to continue since OCR has sucessfully finished.

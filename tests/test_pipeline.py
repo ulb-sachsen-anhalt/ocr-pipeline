@@ -68,7 +68,7 @@ def test_ocr_pipeline_default_config(default_pipeline):
     log_files.sort(key=os.path.getmtime)
     assert log_files[0]
     with open(os.path.join(tld, log_files[0]), 'r') as f_han:
-        entry = f_han.readlines()[4].strip()
+        entry = f_han.readlines()[-1].strip()
         assert entry.endswith('[INFO ] this is a test log info message')
 
 

@@ -18,8 +18,8 @@ RES_0003_JPG = "0003.jpg"
 RES_00041_XML = './tests/resources/0041.xml'
 
 
-@pytest.fixture(name="default_pipeline")
-def create_default_pipeline(tmpdir):
+@pytest.fixture()
+def default_pipeline(tmpdir):
     """create tmp tif data dir"""
 
     path_dir = tmpdir.mkdir("scandata")
@@ -39,7 +39,8 @@ def create_default_pipeline(tmpdir):
     if os.path.exists(tmp_log):
         shutil.rmtree(tmp_log)
 
-    return OCRPipeline(str(path_dir))
+    log_dir = os.path.join(tempfile.gettempdir(), 'ocr-pipeline-log')
+    return OCRPipeline(str(path_dir), log_dir=log_dir)
 
 
 def test_ocr_pipeline_default_config(default_pipeline):
@@ -76,12 +77,10 @@ def test_ocr_pipeline_config_merged(default_pipeline):
     """check how mix of config and cli-args interfere"""
 
     # arrange
+    extra_val = "--tessdata-dir /usr/share/tesseract-ocr/4.00/tessdata --dpi 452"
     args = {"scandata": "/tmp/ocr-pipeline",
             "executors": "2",
-            "extra": """{
-                "--tessdata-dir": "/usr/share/tesseract-ocr/4.00/tessdata",
-                "--dpi": "451",
-                "--psm": "13"}"""
+            "extra": extra_val
             }
 
     # act
@@ -90,13 +89,12 @@ def test_ocr_pipeline_config_merged(default_pipeline):
 
     # assert
     assert pipeline.cfg['step_tesseract']
-    extra = "--tessdata-dir /usr/share/tesseract-ocr/4.00/tessdata --psm 13"
-    assert pipeline.cfg['step_tesseract']['extra'] == extra
-    assert pipeline.cfg.getint('step_tesseract', 'dpi') == 451
+    assert extra_val in pipeline.tesseract_args
+    assert pipeline.tesseract_args['tesseract_bin'] == '/usr/bin/tesseract'
 
 
-def test_ocr_pipeline_config_merge_missing(default_pipeline):
-    """check how mix of config and cli-args with missing dpi"""
+def test_ocr_pipeline_config_merge_without_extra(default_pipeline):
+    """check how mix of config and cli-args without dpi"""
 
     cp = configparser.ConfigParser()
     test_dir = os.path.dirname(os.path.dirname(__file__))
@@ -106,19 +104,15 @@ def test_ocr_pipeline_config_merge_missing(default_pipeline):
     # arrange
     args = {"scandata": "/tmp/ocr-pipeline",
             "executors": "2",
-            "extra": '{"oem":"1"}'}
+            "models" : "ara"}
 
     # act
     pipeline = default_pipeline
     pipeline.merge_args(args)
 
     # assert
-    assert pipeline.cfg['step_tesseract']
-    assert pipeline.cfg['step_tesseract']['extra'] == "oem 1"
-    assert pipeline.cfg.getint('step_tesseract', 'dpi')\
-        == int(cp['step_tesseract']['dpi'])
-    assert pipeline.cfg['step_tesseract']['model_configs']\
-        == cp['step_tesseract']['model_configs']
+    assert pipeline.cfg.getint('pipeline','executors') == 2
+    assert pipeline.tesseract_args['-l'] == 'ara'
 
 
 def test_ocr_pipeline_mark_done(default_pipeline):

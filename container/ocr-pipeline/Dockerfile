@@ -1,6 +1,5 @@
 ARG BASE_IMAGE
 ARG BASE_IMAGE_TAG
-ARG TESS_MODEL
 
 FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG}
 
@@ -12,14 +11,8 @@ ENV OCR_ROOT /opt/ocr-pipeline
 
 # update software repositories
 RUN ["apt-get", "update"]
-# installs of libsm6, libext6, libxrender-dev necessary to fix
-# opencv-python-docker issue: 'libsm shared object not found'
-# see https://github.com/NVIDIA/nvidia-docker/issues/864
 RUN apt-get update && apt-get install -y \
-    python3-pip \
-    libsm6 \
-    libxext6 \
-    libxrender-dev
+    python3-pip 
 
 # create OCR_ROOT dir inside container ...
 RUN ["mkdir", "-p", "${OCR_ROOT}"]
@@ -39,8 +32,8 @@ COPY ./lib/ ./lib
 COPY ./requirements.txt .
 RUN ["pip3", "install", "-r", "requirements.txt"]
 
-# not fail copy if TESS_MODEL not existing, it will match .gitignore at least
-COPY ./model/${TESS_MODEL} /usr/local/share/tessdata
+# copy all traineddata files from subdir model
+COPY ./model/*.traineddata /usr/local/share/tessdata/
 
 # create scandata target folder inside container
 # for scandata root use same folder name as on host

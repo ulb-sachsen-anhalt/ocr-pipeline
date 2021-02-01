@@ -8,14 +8,14 @@ set -e
 #
 # $1 => basis container image as name:tag, i.e. my-custom-tesseract:1.0.0
 # $2 => create image in format name:tag, i.e. my-pipeline:3.0.0
-# $3 => name the container that will be created from image specification from arg $2
-# $4 => opt. model config to be included. convenient to include custom traineddata
+#
+# please note:
+#   every traineddata-file in directory ./model will be copied!
 #
 BASE_IMAGE=${1/:*/}
 BASE_IMAGE_TAG=${1/*:/}
 IMAGE=${2/:*/}
 IMAGE_TAG=${2/*:/}
-TESS_MODEL=$3
 
 #
 # clear eventually existing image
@@ -31,6 +31,5 @@ docker build --no-cache \
     --network=host \
     --build-arg BASE_IMAGE="${BASE_IMAGE}" \
     --build-arg BASE_IMAGE_TAG="${BASE_IMAGE_TAG}" \
-    --build-arg TESS_MODEL="${TESS_MODEL}" \
     -t "${IMAGE}:${IMAGE_TAG}" \
     -f container/ocr-pipeline/Dockerfile .

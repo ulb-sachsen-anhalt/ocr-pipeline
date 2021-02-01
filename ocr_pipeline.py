@@ -10,8 +10,8 @@ import math
 import os
 import pathlib
 import sys
+import tempfile
 import time
-import json
 
 from lib.ocr_step import (
     StepTesseract,
@@ -33,15 +33,20 @@ MARK_MISSING_ESTM = -1
 class OCRPipeline():
     """Control pipeline workflow"""
 
-    def __init__(self, scandata_path, conf_file=None):
+    def __init__(self, scandata_path, conf_file=None, log_dir=None):
         self.cfg = configparser.ConfigParser()
         self.scandata_path = scandata_path
         if conf_file is None:
             project_dir = os.path.dirname(__file__)
             conf_file = os.path.join(project_dir, 'conf', 'ocr_config.ini')
         read_files = self.cfg.read(conf_file)
+        self.tesseract_args = {}
         if not read_files:
             raise ValueError('Error: Missing Pipeline-Configuration!')
+        if log_dir:
+            if not os.path.exists(log_dir):
+                os.makedirs(log_dir)
+            self.cfg['pipeline']['logdir'] = log_dir
         self._init_logger()
         self.prepare_workdir()
 
@@ -55,56 +60,24 @@ class OCRPipeline():
 
         if 'workdir' in arguments and arguments['workdir']:
             self.cfg.set('pipeline', 'workdir', arguments["workdir"])
-
-        if 'dpi' in arguments and arguments['dpi']:
-            self.cfg.set('step_tesseract', 'dpi', arguments["dpi"])
-
         if 'executors' in arguments and arguments['executors']:
             self.cfg['pipeline']['executors'] = arguments['executors']
-
-        if 'models' in arguments or 'dpi' in arguments:
-            pipeline.log(
-                'warning',
-                """parameter 'models' and 'dpi' are deprecated,
-                please use 'extra' argument with json value"""
-            )
-
+        if 'models' in arguments and arguments['models']:
+            self.cfg['step_tesseract']['model_configs'] = arguments['models']
         if 'extra' in arguments and arguments['extra']:
-            tess_xtra_args_dict = json.loads(arguments['extra'])
-            # resolution
-            if '--dpi' in tess_xtra_args_dict:
-                self.cfg.set('step_tesseract', 'dpi',
-                             tess_xtra_args_dict['--dpi'])
-                del tess_xtra_args_dict['--dpi']
-            # model configuration
-            if '-l' in tess_xtra_args_dict:
-                self.cfg.set('step_tesseract', 'model_configs',
-                             tess_xtra_args_dict['-l'])
-                del tess_xtra_args_dict['-l']
-            # make extra dict flat
-            xtra_args = ' '.join(
-                [f"{k} {v}" for k, v in tess_xtra_args_dict.items()])
-
-            self.cfg['step_tesseract']['extra'] = xtra_args
-
-        # debugging output
-        dpi = self.cfg.get('step_tesseract', 'dpi')
-        model_config = self.cfg.get('step_tesseract', 'model_configs')
-        workdir = self.cfg.get('pipeline', 'workdir')
-        execs = self.cfg.getint('pipeline', 'executors')
-        images = self.get_images_sorted()
-        msg1 = f"ocr {len(images)} scans (dpi:{dpi})"
-        msg2 = f"at '{self.scandata_path}' in '{workdir}'"
-        msg3 = f"use '{execs}' execs with conf '{model_config}'"
-        self.log('info', f"{msg1} {msg2} {msg3}")
+            self.tesseract_args[''.join(arguments['extra'])] = None
+        # handle tesseract args
+        self.tesseract_args['-l'] = self.cfg.get('step_tesseract', 'model_configs')
+        self.tesseract_args[self.cfg.get('step_tesseract','output_configs')] = None
+        self.tesseract_args['tesseract_bin'] = self.cfg.get('step_tesseract','tesseract_bin')
 
     def _init_logger(self):
-        logger_folder = self.cfg.get(
-            'pipeline', 'logdir', fallback='/tmp/ocr-pipeline-log')
+        fallback_logdir = os.path.join(tempfile.gettempdir(), 'ocr-pipeline-log')
+        logger_folder = self.cfg.get('pipeline', 'logdir')
         right_now = time.strftime('%Y-%m-%d_%H-%M', time.localtime())
         # path exists but cant be written
         if not os.path.exists(logger_folder) or not os.access(logger_folder, os.W_OK):
-            logger_folder = '/tmp/ocr-pipeline-log'
+            logger_folder = fallback_logdir
             # use default project log path
             # create if not existing
             if not os.path.exists(logger_folder):
@@ -170,7 +143,8 @@ class OCRPipeline():
             if os.access(workdir_tmp, os.W_OK):
                 os.makedirs(workdir_tmp)
             else:
-                self.log('warning', f"workdir {workdir_tmp} not writable, use tmp dir")
+                self.log(
+                    'warning', f"workdir {workdir_tmp} not writable, use tmp dir")
                 workdir_tmp = '/tmp/ocr-pipeline-workdir'
                 if os.path.exists(workdir_tmp):
                     self._clean_workdir(workdir_tmp)
@@ -247,28 +221,27 @@ class OCRPipeline():
         return sorted(image_paths)
 
 
-def _execute_pipeline(start_path):
+def _execute_pipeline(*args):
+    number = args[0][0]
+    start_path = args[0][1]
+    file_marker = f"{number:04d}/{len(IMAGE_PATHS):04d}"
     next_in = start_path
     step_label = 'start'
     image_name = os.path.basename(start_path)
 
     try:
-        # forward to tesseract
-        tess_args_raw = pipeline.cfg['step_tesseract']
-        tess_args = {'--dpi': tess_args_raw.getint('dpi')}
-        if 'extra' in tess_args_raw and tess_args_raw['extra']:
-            tess_args[tess_args_raw.get('extra')] = None
-        tess_args['-l'] = tess_args_raw.get('model_configs')
-        tess_args[tess_args_raw.get('output_configs')] = None
-
         workdir = pipeline.cfg.get('pipeline', 'workdir')
-        step_tesseract = StepTesseract(next_in, tess_args, path_out_folder=workdir)
+
+        # forward to tesseract
+        pipeline.log(
+            'info', f"[{image_name}] process image {file_marker} in {workdir}")
+        step_tesseract = StepTesseract(
+            next_in, pipeline.tesseract_args, path_out_folder=workdir)
         step_label = type(step_tesseract).__name__
         step_tesseract.update_cmd()
-        pipeline.log(
-            'debug', f"[{image_name}] tesseract args {step_tesseract.cmd}")
+        pipeline.log('debug', f"[{image_name}] '{step_tesseract.cmd}'")
         result = pipeline.profile(step_tesseract.execute)
-        pipeline.log('debug', f"[{image_name}] step {result}")
+        pipeline.log('info', f"[{image_name}] step {result}")
         next_in = step_tesseract.path_out
 
         # post correct ALTO data
@@ -344,19 +317,20 @@ def _execute_pipeline(start_path):
 
 # main entry point
 if __name__ == '__main__':
-    APP_ARGUMENTS = argparse.ArgumentParser()
-    APP_ARGUMENTS.add_argument(
-        "-s", "--scandata", required=True, help="path to scandata")
+    APP_ARGUMENTS = argparse.ArgumentParser(
+        formatter_class=argparse.RawTextHelpFormatter)
+    APP_ARGUMENTS.add_argument("scandata", help="path to scandata")
     APP_ARGUMENTS.add_argument(
         "-w", "--workdir", required=False, help="path to workdir")
     APP_ARGUMENTS.add_argument(
-        "-m", "--models", required=False, help="tesseract model config")
+        "-e", "--executors", required=False, help="Number of Executors")
     APP_ARGUMENTS.add_argument(
-        "-d", "--dpi", required=False, help="DPI for pipeline")
+        "-m", "--models", required=False, help="Tesseract model configuration")
     APP_ARGUMENTS.add_argument(
-        "-x", "--extra", required=False, help="Parameter for tesseract as json-dict")
-    APP_ARGUMENTS.add_argument(
-        "-e", "--executors", required=False, help="N of Pipeline Executors")
+        "-x", "--extra", required=False, nargs='+', help='''\
+        Pass args direct to tesseract
+        Use Pairwise and repeatable
+        i.e. like "--dpi <val> --psm <val>" ''')
     ARGS = vars(APP_ARGUMENTS.parse_args())
 
     SCANDATA_PATH = ARGS["scandata"]
@@ -370,14 +344,16 @@ if __name__ == '__main__':
 
     # update pipeline configuration with cli args
     pipeline.merge_args(ARGS)
-
     EXECUTORS = pipeline.cfg.getint('pipeline', 'executors')
     IMAGE_PATHS = pipeline.get_images_sorted()
+    IMAGES_NUMBERS = [(i+1, img) for i, img in enumerate(IMAGE_PATHS)]
+    START_TS = time.time()
+
     START_TS = time.time()
     # perform sequential part of pipeline with parallel processing
     try:
         with concurrent.futures.ProcessPoolExecutor(max_workers=EXECUTORS) as executor:
-            ESTIMATIONS = list(executor.map(_execute_pipeline, IMAGE_PATHS))
+            ESTIMATIONS = list(executor.map(_execute_pipeline, IMAGES_NUMBERS))
             estimations = [r for r in ESTIMATIONS if r[1] > MARK_MISSING_ESTM]
             if estimations:
                 pipeline.store_estimations(estimations)

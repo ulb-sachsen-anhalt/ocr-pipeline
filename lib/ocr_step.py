@@ -131,7 +131,11 @@ class StepTesseract(StepIOExtern):
         self.args = OrderedDict(args)
         self.path_out_folder = path_out_folder
         self.path_out = self._set_path_out()
-        self.cmd = 'tesseract' + self._create_cmd()
+        self.bin = 'tesseract'
+        if 'tesseract_bin' in self.args and self.args['tesseract_bin']:
+            self.bin = self.args['tesseract_bin']
+            del self.args['tesseract_bin']
+        # self.cmd = self.bin + self._create_cmd()
 
 
     def update_cmd(self):
@@ -148,7 +152,7 @@ class StepTesseract(StepIOExtern):
         self.args.move_to_end(tmp_name, last=False)
         self.args.update({self.path_in: None})
         self.args.move_to_end(self.path_in, last=False)
-        self.cmd = 'tesseract' + self._create_cmd()
+        self.cmd = self.bin + self._create_cmd()
 
 
     def _set_path_out(self):

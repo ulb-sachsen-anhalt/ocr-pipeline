@@ -56,7 +56,7 @@ def test_step_tesseract_list_langs(path_tiff):
     step = StepTesseract(path_tiff, args)
 
     # assert
-    assert 'tesseract --list-langs' in step.cmd
+    assert ' --list-langs' in step.cmd
 
 
 def test_step_tesseract_path_out_folder(path_tiff):

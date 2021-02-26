@@ -49,11 +49,11 @@ The second step is to build the OCR system image. It puts the scripts in place, 
 
 ```shell
 # 1st: build base image from official Tesseract Release Tag and with desired image name. We're using 4.1.1 until a new stable version is released.
-./create-baseimage.sh my-tesseract:4.1.1
-=> my-tesseract:4.1.1 <commit-ref>
+./container/tesseract/create-baseimage.sh my-tesseract [<ref>]
+=> my-tesseract:[<ref>]
 
 # 2nd: build ocr system image using the previously created base image + tag and desired name and version tag and optional model from the model dir
-./create-image.sh my-tesseract:4.1.1 my-ocr-system:1.0.0
+./container/ocr-pipeline/create-image.sh my-tesseract:[<ref>] my-ocr-system:1.0.0
 => my-ocr-system:1.0.0
 
 ```

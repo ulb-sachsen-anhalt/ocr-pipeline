@@ -104,5 +104,5 @@ The script `manage-container-ocr.sh` forms the OCR part of the Digitization Work
 
 Data delivery to the host system is scheduled via cronjobs. When triggered, it's searching a small marker file called `meta_done`, which represents the previous stage in the workflow. After running the OCR-System, this marker file is moved on as `ocr_done`, which indicates the following step to continue since OCR has sucessfully finished.
 
-## Licensing
+## License
 Under terms of the [MIT license](https://opensource.org/licenses/MIT)

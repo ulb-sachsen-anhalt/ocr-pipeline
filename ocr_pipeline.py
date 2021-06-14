@@ -13,14 +13,18 @@ import sys
 import tempfile
 import time
 
+# pylint: disable=unused-import
+# import statement *is* necessary
+# for global clazz loading
 from lib.ocr_step import (
-    StepTesseract,
-    StepPostMoveAlto,
     StepPostReplaceChars,
-    RegexReplacement,
+    StepException,
+    StepIO,
+    StepIOExtern,
+    StepTesseract,
     StepPostReplaceCharsRegex,
-    StepEstimateOCR,
-    StepException
+    StepPostMoveAlto,
+    StepEstimateOCR
 )
 
 
@@ -29,6 +33,8 @@ os.environ['OMP_THREAD_LIMIT'] = '1'
 
 MARK_MISSING_ESTM = -1
 
+DEFAULT_PATH_CONFIG = 'conf/ocr_config.ini'
+
 
 class OCRPipeline():
     """Control pipeline workflow"""
@@ -36,9 +42,10 @@ class OCRPipeline():
     def __init__(self, scandata_path, conf_file=None, log_dir=None):
         self.cfg = configparser.ConfigParser()
         self.scandata_path = scandata_path
+        self.steps = []
         if conf_file is None:
             project_dir = os.path.dirname(__file__)
-            conf_file = os.path.join(project_dir, 'conf', 'ocr_config.ini')
+            conf_file = os.path.join(project_dir, DEFAULT_PATH_CONFIG)
         read_files = self.cfg.read(conf_file)
         self.tesseract_args = {}
         if not read_files:
@@ -62,17 +69,39 @@ class OCRPipeline():
             self.cfg.set('pipeline', 'workdir', arguments["workdir"])
         if 'executors' in arguments and arguments['executors']:
             self.cfg['pipeline']['executors'] = arguments['executors']
-        if 'models' in arguments and arguments['models']:
-            self.cfg['step_tesseract']['model_configs'] = arguments['models']
-        if 'extra' in arguments and arguments['extra']:
-            self.tesseract_args[''.join(arguments['extra'])] = None
         # handle tesseract args
-        self.tesseract_args['-l'] = self.cfg.get('step_tesseract', 'model_configs')
-        self.tesseract_args[self.cfg.get('step_tesseract','output_configs')] = None
-        self.tesseract_args['tesseract_bin'] = self.cfg.get('step_tesseract','tesseract_bin')
+        sects_tess = self._get_tesseract_section()
+        if len(sects_tess) > 0:
+            sect_tess = sects_tess[0]
+            if 'models' in arguments and arguments['models']:
+                sect_tess['model_configs'] = arguments['models']
+            if 'extra' in arguments and arguments['extra']:
+                sect_tess['extra'] = ''.join(arguments['extra'])
+            if 'tesseract_bin' in arguments and arguments['tesseract_bin']:
+                sect_tess['tesseract_bin'] = arguments['tesseract_bin']
+
+    def _get_tesseract_section(self):
+        return [self.cfg[s] for s in self.cfg.sections() for k, v in self.cfg[s].items() if k == 'type' and 'esseract' in str(v)]
+
+    def get_steps(self):
+        """
+        Parse configured steps, which must be labeled
+        like 'step_01', step_02' and so forth
+        """
+        step_configs = [
+            s for s in self.cfg.sections() if s.startswith('step_')]
+        sorted_steps = sorted(step_configs, key=lambda s: int(s.split('_')[1]))
+        for step in sorted_steps:
+            the_type = self.cfg.get(step, 'type')
+            the_keys = self.cfg[step].keys()
+            the_kwargs = {k: self.cfg[step][k] for k in the_keys}
+            the_step = globals()[the_type](the_kwargs)
+            self.steps.append(the_step)
+        return self.steps
 
     def _init_logger(self):
-        fallback_logdir = os.path.join(tempfile.gettempdir(), 'ocr-pipeline-log')
+        fallback_logdir = os.path.join(
+            tempfile.gettempdir(), 'ocr-pipeline-log')
         logger_folder = self.cfg.get('pipeline', 'logdir')
         right_now = time.strftime('%Y-%m-%d_%H-%M', time.localtime())
         # path exists but cant be written
@@ -204,16 +233,16 @@ class OCRPipeline():
                 outfile.write("\n")
                 return file_path
 
-    def get_images_sorted(self):
-        """get all images tif|jpg|png as sorted list"""
+    def get_input_sorted(self):
+        """get input data as sorted list"""
 
-        img_exts = [self.cfg.get('pipeline', 'image_ext')]
-        if "," in img_exts[0]:
-            img_exts = img_exts[0].split(",")
+        exts = [self.cfg.get('pipeline', 'file_ext')]
+        if "," in exts[0]:
+            exts = exts[0].split(",")
 
         def _f(path):
-            for img_ext in img_exts:
-                if str(path).endswith(img_ext):
+            for file_ext in exts:
+                if str(path).endswith(file_ext):
                     return True
 
         image_paths = [str(i) for i in pathlib.Path(
@@ -224,88 +253,40 @@ class OCRPipeline():
 def _execute_pipeline(*args):
     number = args[0][0]
     start_path = args[0][1]
-    file_marker = f"{number:04d}/{len(IMAGE_PATHS):04d}"
+    file_marker = f"{number:04d}/{len(INPUT_PATHS):04d}"
     next_in = start_path
     step_label = 'start'
-    image_name = os.path.basename(start_path)
+    file_name = os.path.basename(start_path)
+    outcome = (file_name, MARK_MISSING_ESTM)
 
     try:
         workdir = pipeline.cfg.get('pipeline', 'workdir')
 
-        # forward to tesseract
         pipeline.log(
-            'info', f"[{image_name}] process image {file_marker} in {workdir}")
-        step_tesseract = StepTesseract(
-            next_in, pipeline.tesseract_args, path_out_folder=workdir)
-        step_label = type(step_tesseract).__name__
-        step_tesseract.update_cmd()
-        pipeline.log('debug', f"[{image_name}] '{step_tesseract.cmd}'")
-        result = pipeline.profile(step_tesseract.execute)
-        pipeline.log('info', f"[{image_name}] step {result}")
-        next_in = step_tesseract.path_out
+            'info', f"[{file_name}] [{file_marker}] in {workdir}")
 
-        # post correct ALTO data
-        stats = []
-        dict2 = {'ic)': 'ich', 's&lt;': 'sc', '&lt;': 'c'}
-        must_backup = pipeline.get('step_replace', 'must_backup')
-        step_replace = StepPostReplaceChars(
-            next_in, dict2, must_backup=must_backup)
-        step_label = type(step_replace).__name__
-        step_replace.execute()
-        replacements = step_replace.get_statistics()
-        if replacements:
-            stats += replacements
-        next_in = step_replace.path_out
-        replace_trailing_three = RegexReplacement(
-            r'([aeioubcglnt]3[:-]*")', '3', 's')
-        regex_replacements = [replace_trailing_three]
-        step_regex = StepPostReplaceCharsRegex(
-            next_in, regex_replacements, must_backup=must_backup)
-        step_label = type(step_regex).__name__
-        step_regex.execute()
-        regexs = step_regex.get_statistics()
-        if regexs:
-            stats += regexs
-        if stats:
-            pipeline.log(
-                'debug', f"[{image_name}] replace >>[{', '.join(stats)}]<<")
-        next_in = step_replace.path_out
+        for step in STEPS:
+            step.path_in = next_in
+            if isinstance(step, StepIOExtern):
+                pipeline.log('debug', f"[{file_name}] {step.cmd}")
 
-        # estimate OCR quality
-        result = None
-        estm_required = str(pipeline.get('step_language_tool', 'active'))
-        if estm_required.upper() == 'TRUE':
-            lturl = pipeline.get('step_language_tool', 'url')
-            ltlang = pipeline.get('step_language_tool', 'language')
-            if not lturl or not ltlang:
-                pipeline.log(
-                    'warning', f"[{image_name}] invalid {lturl} or {ltlang}, skipping")
-            else:
-                ltrules = pipeline.get('step_language_tool', 'enabled_rules')
-                step_estm = StepEstimateOCR(next_in, lturl, ltlang, ltrules)
-                step_label = type(step_estm).__name__
-                if step_estm.is_available():
-                    try:
-                        result = pipeline.profile(step_estm.execute)
-                        pipeline.log('debug', f"[{image_name}] step {result}")
-                        result = step_estm.get()
-                    except StepException as exc:
-                        pipeline.log(
-                            'warning', f"Error at '{step_label}: {exc}")
+            # the actual execution
+            result = pipeline.profile(step.execute)
 
-        # move ALTO Data
-        step_move_alto = StepPostMoveAlto(next_in, start_path)
-        step_label = type(step_move_alto).__name__
-        step_move_alto.execute()
+            # log current step
+            if hasattr(step, 'statistics'):
+                statistics = step.statistics
+                pipeline.log('debug', f"[{file_name}] {', '.join(statistics)}")
+                if result and isinstance(step, StepEstimateOCR):
+                    outcome = (file_name,) + statistics
+            pipeline.log('info', f"[{file_name}] step {result}")
 
-        if result is not None:
-            (wtr, nws, nes, nin, nwraps, nss, nout) = result
-            l_e = f"[{image_name}] WTR '{wtr}' ({nes}/{nws}, {nin}=>[{nwraps},{nss}]=>{nout})"
-            pipeline.log('info', l_e)
-            return (image_name, wtr, nws, nes, nin, nwraps, nss, nout)
+            # prepare next step
+            if hasattr(step, 'path_next') and step.path_next is not None:
+                pipeline.log('debug', f'{step} path_next: {step.path_next}')
+                next_in = step.path_next
 
-        # if estimation result missing, just return image name and missing mark "-1"
-        return (image_name, MARK_MISSING_ESTM)
+        return outcome
 
     except StepException as exc:
         pipeline.log('error', f"[{start_path}] {step_label}: {exc}")
@@ -319,7 +300,9 @@ def _execute_pipeline(*args):
 if __name__ == '__main__':
     APP_ARGUMENTS = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter)
-    APP_ARGUMENTS.add_argument("scandata", help="path to scandata")
+    APP_ARGUMENTS.add_argument("scandata", help="path to scandata dir")
+    APP_ARGUMENTS.add_argument(
+        "-c", "--config", required=False, help="path to config file", default=DEFAULT_PATH_CONFIG)
     APP_ARGUMENTS.add_argument(
         "-w", "--workdir", required=False, help="path to workdir")
     APP_ARGUMENTS.add_argument(
@@ -338,23 +321,24 @@ if __name__ == '__main__':
         print(
             f"[ERROR] scandata path '{SCANDATA_PATH}' invalid!", file=sys.stderr)
         sys.exit(1)
+    CONFIG = ARGS.get('config', DEFAULT_PATH_CONFIG)
 
     # create ocr pipeline wrapper instance
-    pipeline = OCRPipeline(SCANDATA_PATH)
+    pipeline = OCRPipeline(SCANDATA_PATH, CONFIG)
 
     # update pipeline configuration with cli args
     pipeline.merge_args(ARGS)
     EXECUTORS = pipeline.cfg.getint('pipeline', 'executors')
-    IMAGE_PATHS = pipeline.get_images_sorted()
-    IMAGES_NUMBERS = [(i+1, img) for i, img in enumerate(IMAGE_PATHS)]
+    STEPS = pipeline.get_steps()
+    INPUT_PATHS = pipeline.get_input_sorted()
+    INPUT_NUMBERED = [(i, img) for i, img in enumerate(INPUT_PATHS, start=1)]
     START_TS = time.time()
 
-    START_TS = time.time()
     # perform sequential part of pipeline with parallel processing
     try:
         with concurrent.futures.ProcessPoolExecutor(max_workers=EXECUTORS) as executor:
-            ESTIMATIONS = list(executor.map(_execute_pipeline, IMAGES_NUMBERS))
-            estimations = [r for r in ESTIMATIONS if r[1] > MARK_MISSING_ESTM]
+            RESULTS = list(executor.map(_execute_pipeline, INPUT_NUMBERED))
+            estimations = [r for r in RESULTS if r[1] > MARK_MISSING_ESTM]
             if estimations:
                 pipeline.store_estimations(estimations)
             else:

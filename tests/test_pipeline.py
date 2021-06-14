@@ -2,14 +2,19 @@
 """Tests OCR Pipeline API"""
 
 import os
+import pathlib
 import shutil
-import tempfile
 import configparser
 
 import pytest
 
 from ocr_pipeline import (
     OCRPipeline
+)
+from lib.ocr_step import (
+    StepTesseract,
+    StepPostReplaceChars,
+    StepPostReplaceCharsRegex
 )
 
 RES_0001_TIF = "0001.tif"
@@ -18,15 +23,19 @@ RES_0003_JPG = "0003.jpg"
 RES_00041_XML = './tests/resources/0041.xml'
 
 
-@pytest.fixture()
-def default_pipeline(tmpdir):
-    """create tmp tif data dir"""
+@pytest.fixture(name="a_workspace")
+def fixure_a_workspace(tmp_path):
+    """create 08/15 workspace fixture"""
 
-    path_dir = tmpdir.mkdir("scandata")
-    path_scan_0001 = path_dir.join(RES_0001_TIF)
-    path_scan_0002 = path_dir.join(RES_0002_PNG)
-    path_scan_0003 = path_dir.join(RES_0003_JPG)
-    path_mark_prev = path_dir.join("ocr_busy")
+    data_dir = tmp_path / "scandata"
+    data_dir.mkdir()
+    log_dir = tmp_path / "log"
+    log_dir.mkdir()
+
+    path_scan_0001 = data_dir / RES_0001_TIF
+    path_scan_0002 = data_dir / RES_0002_PNG
+    path_scan_0003 = data_dir / RES_0003_JPG
+    path_mark_prev = data_dir / "ocr_busy"
     with open(path_mark_prev, 'w') as marker_file:
         marker_file.write("previous state\n")
 
@@ -34,13 +43,15 @@ def default_pipeline(tmpdir):
     shutil.copyfile(RES_00041_XML, path_scan_0002)
     shutil.copyfile(RES_00041_XML, path_scan_0003)
 
-    # reset tmp log
-    tmp_log = os.path.join(tempfile.gettempdir(), 'ocr-pipeline-log')
-    if os.path.exists(tmp_log):
-        shutil.rmtree(tmp_log)
+    log_dir = log_dir / 'ocr-pipeline-log'
+    return tmp_path
 
-    log_dir = os.path.join(tempfile.gettempdir(), 'ocr-pipeline-log')
-    return OCRPipeline(str(path_dir), log_dir=log_dir)
+
+@pytest.fixture(name="default_pipeline")
+def fixture_default_pipeline(a_workspace):
+    data_dir = a_workspace / "scandata"
+    log_dir = a_workspace / "log"
+    return OCRPipeline(str(data_dir), log_dir=str(log_dir))
 
 
 def test_ocr_pipeline_default_config(default_pipeline):
@@ -53,24 +64,22 @@ def test_ocr_pipeline_default_config(default_pipeline):
     assert pipeline
     assert pipeline.get('pipeline', 'executors') == '8'
     assert pipeline.get('pipeline', 'logger_name') == 'ocr_pipeline'
-    assert pipeline.get('pipeline', 'image_ext') == 'tif,jpg,png,jpeg'
-    assert pipeline.get('step_language_tool', 'language') == 'de-DE'
-    assert pipeline.get('step_language_tool',
-                        'enabled_rules') == 'GERMAN_SPELLER_RULE'
+    assert pipeline.get('pipeline', 'file_ext') == 'tif,jpg,png,jpeg'
+    assert pipeline.get('step_03', 'language') == 'de-DE'
+    assert pipeline.get('step_03', 'enabled_rules') == 'GERMAN_SPELLER_RULE'
 
-    # act again
-    pipeline.log('info', 'this is a test log info message')
+
+def test_ocr_pipeline_default_logging(default_pipeline, caplog):
+    """check default config options"""
+
+    # arrange
+    log_msg = 'this is a test log info message'
+
+    # act
+    default_pipeline.log('info', log_msg)
 
     # assert log data
-    tld = os.path.join(tempfile.gettempdir(), 'ocr-pipeline-log')
-    assert os.path.exists(tld)
-    log_files = [os.path.join(tld, f)
-                 for f in os.listdir(tld) if str(f).endswith('.log')]
-    log_files.sort(key=os.path.getmtime)
-    assert log_files[0]
-    with open(os.path.join(tld, log_files[0]), 'r') as f_han:
-        entry = f_han.readlines()[-1].strip()
-        assert entry.endswith('[INFO ] this is a test log info message')
+    assert log_msg in caplog.messages
 
 
 def test_ocr_pipeline_config_merged(default_pipeline):
@@ -88,9 +97,9 @@ def test_ocr_pipeline_config_merged(default_pipeline):
     pipeline.merge_args(args)
 
     # assert
-    assert pipeline.cfg['step_tesseract']
-    assert extra_val in pipeline.tesseract_args
-    assert 'tesseract' in pipeline.tesseract_args['tesseract_bin']
+    assert pipeline.cfg['step_01']
+    assert extra_val in pipeline.cfg['step_01']['extra']
+    assert 'tesseract' in pipeline.cfg['step_01']['tesseract_bin']
 
 
 def test_ocr_pipeline_config_merge_without_extra(default_pipeline):
@@ -104,15 +113,15 @@ def test_ocr_pipeline_config_merge_without_extra(default_pipeline):
     # arrange
     args = {"scandata": "/tmp/ocr-pipeline",
             "executors": "2",
-            "models" : "ara"}
+            "models": "ara"}
 
     # act
     pipeline = default_pipeline
     pipeline.merge_args(args)
 
     # assert
-    assert pipeline.cfg.getint('pipeline','executors') == 2
-    assert pipeline.tesseract_args['-l'] == 'ara'
+    assert pipeline.cfg.getint('pipeline', 'executors') == 2
+    assert pipeline.cfg['step_01']['model_configs'] == 'ara'
 
 
 def test_ocr_pipeline_mark_done(default_pipeline):
@@ -132,10 +141,10 @@ def test_ocr_pipeline_mark_done(default_pipeline):
 
 
 def test_ocr_pipeline_get_images(default_pipeline):
-    """check all images are respected and sorted, too"""
+    """check images are sorted"""
 
     # act
-    images = default_pipeline.get_images_sorted()
+    images = default_pipeline.get_input_sorted()
     default_scanpath = default_pipeline.scandata_path
 
     # assert
@@ -189,3 +198,60 @@ def test_ocr_pipeline_estimations(default_pipeline):
 
     # assert
     assert os.path.exists(wtr_path)
+
+
+@pytest.fixture(name="custom_config_pipeline")
+def fixture_custom_config_pipeline(a_workspace):
+    data_dir = a_workspace / "scandata"
+    log_dir = a_workspace / "log"
+    conf_dir = a_workspace / "conf"
+    conf_dir.mkdir()
+    conf_file = pathlib.Path(__file__).parent / \
+        'resources' / 'ocr_config_full.ini'
+    assert os.path.isfile(conf_file)
+    return OCRPipeline(str(data_dir), log_dir=str(log_dir), conf_file=str(conf_file))
+
+
+def test_pipeline_step_tesseract(custom_config_pipeline, a_workspace):
+    """Check proper tesseract cmd from full configuration"""
+
+    # act
+    steps = custom_config_pipeline.get_steps()
+    steps[0].path_in = a_workspace / 'scandata' / RES_0001_TIF
+
+    # assert
+    assert len(steps) == 5
+    assert isinstance(steps[0], StepTesseract)
+    the_cmd = steps[0].cmd
+    the_cmd_tokens = the_cmd.split()
+    assert len(the_cmd_tokens) == 6
+    assert the_cmd_tokens[0] == 'tesseract'
+    assert the_cmd_tokens[1].endswith('scandata/0001.tif')
+    assert the_cmd_tokens[2].endswith('scandata/0001')
+    assert the_cmd_tokens[3] == '-l'
+    assert the_cmd_tokens[4] == 'frk+deu'
+    assert the_cmd_tokens[5] == 'alto'
+
+
+def test_pipeline_step_replace(custom_config_pipeline):
+    """Check proper steps from full configuration"""
+
+    # act
+    steps = custom_config_pipeline.get_steps()
+
+    # assert
+    assert len(steps) == 5
+    assert isinstance(steps[1], StepPostReplaceChars)
+    assert isinstance(steps[1]._dict_chars, dict)
+
+
+def test_pipeline_step_replace_regex(custom_config_pipeline):
+    """Check proper steps from full configuration"""
+
+    # act
+    steps = custom_config_pipeline.get_steps()
+
+    # assert
+    assert len(steps) == 5
+    assert isinstance(steps[2], StepPostReplaceCharsRegex)
+    assert steps[2].pattern == 'r\'([aeioubcglnt]3[:-]*")\''

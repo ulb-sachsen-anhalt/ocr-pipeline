@@ -41,7 +41,10 @@ class OCRPipeline():
 
     def __init__(self, scandata_path, conf_file=None, log_dir=None):
         self.cfg = configparser.ConfigParser()
-        self.scandata_path = scandata_path
+        _path = scandata_path
+        if _path.endswith('/'):
+            _path = _path[0:-1]
+        self.scandata_path = _path
         self.steps = []
         if conf_file is None:
             project_dir = os.path.dirname(__file__)

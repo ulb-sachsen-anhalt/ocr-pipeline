@@ -188,11 +188,11 @@ class StepTesseract(StepIOExtern):
 
 
 def parse_dict(the_dict):
+    """parse dictionary from string without worrying about proper json syntax"""
     if isinstance(the_dict, str):
         the_dict = the_dict.replace('{', '').replace('}', '')
         tkns = the_dict.split(',')
         if len(tkns) > 1:
-            print(f"DICIT TKNS {tkns}")
             return {tkn.split(':')[0].strip(): tkn.split(':')[1].strip() for tkn in tkns}
     if isinstance(the_dict, dict):
         return the_dict

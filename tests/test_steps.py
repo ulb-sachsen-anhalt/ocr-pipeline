@@ -7,33 +7,25 @@ import shutil
 import pytest
 
 from lib.ocr_step import (
-    Step,
     StepIO,
     StepTesseract,
     StepPostMoveAlto,
     StepPostReplaceChars,
-    RegexReplacement,
+    # RegexReplacement,
     StepPostReplaceCharsRegex,
     StepPostRemoveFile,
     StepException,
-    StepEstimateOCR
+    StepEstimateOCR,
+    textlines2data,
+    altolines2textlines,
 )
-
-
-
-def test_step_not_initable():
-    """Step cant be instantiated"""
-
-    with pytest.raises(TypeError) as exec_info:
-        Step()              # pylint: disable=abstract-class-instantiated
-    assert "Can't instantiate" in str(exec_info.value)
 
 
 def test_stepio_not_initable():
     """StepIO cant be instantiated"""
 
     with pytest.raises(TypeError) as exec_info:
-        StepIO('/a/path')    # pylint: disable=abstract-class-instantiated
+        StepIO()    # pylint: disable=abstract-class-instantiated
     assert "Can't instantiate" in str(exec_info.value)
 
 
@@ -50,38 +42,42 @@ def test_step_tesseract_list_langs(path_tiff):
     """Tesseract list-langs"""
 
     # arrange
-    args = {'--list-langs' : None}
+    args = {'--list-langs': None}
 
     # act
-    step = StepTesseract(path_tiff, args)
+    step = StepTesseract(args)
+    step.path_in = path_tiff
 
     # assert
     assert ' --list-langs' in step.cmd
+    assert step.path_in == path_tiff
 
 
 def test_step_tesseract_path_out_folder(path_tiff):
     """Tesseract path to write result"""
 
     # arrange
-    args = {'-l' : 'deu', 'alto': None}
+    args = {'-l': 'deu', 'alto': None}
 
     # act
-    step = StepTesseract(path_tiff, args=args, path_out_folder="/tmp")
+    step = StepTesseract(args)
+    step.path_in = path_tiff
 
     # assert
-    assert '/tmp/500_gray00001_st.xml' in step.path_out
+    assert 'scan/500_gray00001_st.xml' in step.path_next
 
 
-def test_step_tesseract_misses_args(path_tiff):
+def test_step_tesseract_invalid_params(path_tiff):
     """Tesseract path to write result"""
 
     # act
     with pytest.raises(StepException) as excinfo:
-        StepTesseract(path_tiff, args=None, path_out_folder="/tmp")
+        StepTesseract(path_tiff)
 
     # assert
     actual_exc_text = str(excinfo.value)
-    assert 'Invalid Dictionary for arguments provided: "None" !' in actual_exc_text
+    assert 'Invalid Dictionary for arguments provided' in actual_exc_text
+    assert '"need more than 1 value to unpack" !' in actual_exc_text
 
 
 def test_step_tesseract_full_args(path_tiff):
@@ -91,16 +87,16 @@ def test_step_tesseract_full_args(path_tiff):
 
     # arrange
     # some args are computed later on
-    args = {'--dpi' : 500, '-l': 'frk', 'alto': None}
+    args = {'--dpi': 470, '-l': 'ulbfrk', 'alto': None}
 
     # act
-    step = StepTesseract(path_tiff, args)
-    step.update_cmd()
+    step = StepTesseract(args)
+    step.path_in = path_tiff
 
     # assert
-    cmd = f'tesseract {path_tiff} {os.path.splitext(path_tiff)[0]} --dpi 500 -l frk alto'
+    cmd = f'tesseract {path_tiff} {os.path.splitext(path_tiff)[0]} --dpi 470 -l ulbfrk alto'
     assert cmd == step.cmd
-    assert step.path_out.endswith('500_gray00001_st.xml')
+    assert step.path_next.endswith('500_gray00001_st.xml')
 
 
 def test_step_tesseract_different_configurations(path_tiff):
@@ -110,8 +106,8 @@ def test_step_tesseract_different_configurations(path_tiff):
     args = {'-l': 'frk_ulbzd1', 'alto': None, 'txt': None}
 
     # act
-    step = StepTesseract(path_tiff, args)
-    step.update_cmd()
+    step = StepTesseract(args)
+    step.path_in = path_tiff
 
     # assert
     tesseract_cmd = f'tesseract {path_tiff} {os.path.splitext(path_tiff)[0]} -l frk_ulbzd1 alto txt'
@@ -122,10 +118,12 @@ def test_step_copy_alto_back(path_tiff):
     """Move ALTO file back to where we started"""
 
     # arrange
-    target_path = '/tmp/500_gray00001_st.tif'
+    path_target = '/tmp/500_gray00001_st.tif'
 
     # act
-    step = StepPostMoveAlto(path_tiff, target_path)
+    step = StepPostMoveAlto({})
+    step.path_in = path_tiff
+    step.path_out = path_target
     step.execute()
 
     # assert
@@ -139,8 +137,11 @@ def test_step_replace():
 
     # arrange
     src = './tests/resources/500_gray00003.xml'
-    dict_chars = {'ſ': 's', 'ic)' : 'ich'}
-    step = StepPostReplaceChars(src, dict_chars, must_backup=True)
+    dict_chars = {'ſ': 's', 'ic)': 'ich'}
+    params = {'dict_chars': dict_chars, 'must_backup': True}
+    step = StepPostReplaceChars(params)
+    step.path_in = src
+
     lines = ['<String ID="string_405" WC="0.96" CONTENT="geweſen"/>']
     lines.append('<String ID="string_406" WC="0.95" CONTENT="iſt."/>')
     lines.append('<String ID="string_407" WC="0.96" CONTENT="Beſtätigt"/>')
@@ -167,13 +168,14 @@ def fixture_empty_ocr(tmpdir):
 def test_step_replace_with_empty_alto(empty_ocr):
     """Determine behavior for invalid input data"""
 
-    step = StepPostReplaceChars(empty_ocr, {'ſ':'s'})
+    step = StepPostReplaceChars({'dict_chars': {'ſ': 's'}})
+    step.path_in = empty_ocr
 
     # act
     step.execute()
 
     # assert
-    assert not step.get_statistics()
+    assert not step.statistics
 
 
 @pytest.fixture(name='tmp_500_gray')
@@ -185,21 +187,28 @@ def fixture_create_tmp_500_gray(tmpdir):
     return path
 
 
+def _provide_replace_params():
+    dict_chars = {'ſ': 's', 'ic)': 'ich'}
+    params = {'dict_chars': dict_chars, 'must_backup': True}
+    return params
+
+
 def test_replaced_file_written(tmp_500_gray):
     """test replaced file written"""
 
     # arrange
-    dict_chars = {'ſ': 's', 'ic)' : 'ich'}
-    step = StepPostReplaceChars(str(tmp_500_gray), dict_chars, must_backup=True)
+    params = _provide_replace_params()
+    step = StepPostReplaceChars(params)
 
     # act
+    step.path_in = tmp_500_gray
     step.execute()
 
-    #assert
+    # assert
     check_handle = open(tmp_500_gray, 'r')
     lines = check_handle.readlines()
     for line in lines:
-        for (k, _) in dict_chars.items():
+        for (k, _) in params['dict_chars'].items():
             assert k not in line
     check_handle.close()
 
@@ -213,15 +222,15 @@ def test_replaced_file_statistics(tmp_500_gray):
     """test statistics available"""
 
     # arrange
-    dict_chars = {'ſ': 's', 'ic)' : 'ich'}
-    step = StepPostReplaceChars(str(tmp_500_gray), dict_chars, must_backup=True)
+    step = StepPostReplaceChars(_provide_replace_params())
+    step.path_in = tmp_500_gray
 
     # act
     step.execute()
 
-    #assert
+    # assert
     expected = ['ſ:392', 'ic):6']
-    assert expected == step.get_statistics()
+    assert expected == step.statistics
     assert os.path.exists(os.path.join(os.path.dirname(tmp_500_gray),
                                        'input_before_StepPostReplaceChars.xml'))
 
@@ -230,10 +239,11 @@ def test_regex_replacements(tmp_500_gray):
     """check regex replacements in total"""
 
     # arrange
-    regex_replacements = [RegexReplacement(r'([aeioubcglnt]3[:-]*")', '3', 's')]
-    step = StepPostReplaceCharsRegex(str(tmp_500_gray), regex_replacements)
+    params = {'pattern': r'([aeioubcglnt]3[:-]*")', 'old': '3', 'new': 's'}
+    step = StepPostReplaceCharsRegex(params)
 
     # act
+    step.path_in = tmp_500_gray
     step.execute()
 
     # assert
@@ -254,29 +264,31 @@ def test_regex_replacements(tmp_500_gray):
                 'i3"=>is":2',
                 'g3"=>gs":1',
                 'n3"=>ns":1']
-    assert expected == step.get_statistics()
+    assert expected == step.statistics
 
 
 def test_remove_failed():
     """Test remove failed since file is missing"""
 
     # arrange
+    step = StepPostRemoveFile({'file_suffix': 'tif'})
+
+    # act
     with pytest.raises(RuntimeError):
-        StepPostRemoveFile('qwerrwe.tif', 'tif')
+        step.path_in = 'qwerrwe.tif'
 
 
 def test_remove_succeeded(path_tiff):
     """Test remove success"""
 
     # arrange
-    path_tmp = './tests/resources/tmp_gray00001.tif'
-    shutil.copyfile(path_tiff, path_tmp)
-    step = StepPostRemoveFile(path_tmp, 'tif')
+    step = StepPostRemoveFile({'file_suffix': 'tif'})
 
     # act
+    step.path_in = path_tiff
     step.execute()
 
-    #assert
+    # assert
     assert step.is_removed()
 
 
@@ -339,7 +351,8 @@ def test_estimate_handle_large_wtr():
 def test_step_estimateocr_empty_alto(empty_ocr):
     """Determine bahavior of stepestimator when confronted with empty alto file"""
 
-    step = StepEstimateOCR(empty_ocr, 'http://localhost:8011')
+    step = StepEstimateOCR({})
+    step.path_in = empty_ocr
 
     # act
     with pytest.raises(StepException) as exec_info:
@@ -347,10 +360,10 @@ def test_step_estimateocr_empty_alto(empty_ocr):
     assert "No Textlines" in str(exec_info.value)
 
 
-def test_service_down(empty_ocr):
+def test_service_down():
     """Determine Behavior when url not accessible"""
 
-    step = StepEstimateOCR(empty_ocr, 'http://localhost:8011')
+    step = StepEstimateOCR({})
     assert not step.is_available()
 
 
@@ -361,8 +374,8 @@ def test_step_estimateocr_lines_and_tokens():
 
     # act
     # pylint: disable=protected-access
-    lines = StepEstimateOCR._to_textlines(test_data)
-    (_, n_lines, _, _, n_lines_out) = StepEstimateOCR._get_data(lines)
+    lines = altolines2textlines(test_data)
+    (_, n_lines, _, _, n_lines_out) = textlines2data(lines)
 
     assert len(lines) == 370
     assert n_lines == 370

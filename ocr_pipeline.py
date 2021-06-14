@@ -165,8 +165,8 @@ class OCRPipeline():
 
         workdir_tmp = workdir
         if not workdir_tmp:
-            self.log('warning', f"no workdir set, use conf: {workdir_tmp}")
             workdir_tmp = self.cfg.get('pipeline', 'workdir')
+            self.log('warning', f"no workdir set, using '{workdir_tmp}'")
 
         if not os.path.isdir(workdir_tmp):
             if os.access(workdir_tmp, os.W_OK):
@@ -276,7 +276,7 @@ def _execute_pipeline(*args):
             # log current step
             if hasattr(step, 'statistics'):
                 statistics = step.statistics
-                pipeline.log('debug', f"[{file_name}] {', '.join(statistics)}")
+                pipeline.log('debug', f"[{file_name}] {statistics}")
                 if result and isinstance(step, StepEstimateOCR):
                     outcome = (file_name,) + statistics
             pipeline.log('info', f"[{file_name}] step {result}")

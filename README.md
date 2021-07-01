@@ -30,10 +30,12 @@ optional:
 #### Hardware recommendation
 
 Minimal:
+
 * 8GB RAM
 * quadcore processor
 
 Recommended:
+
 * 16GB RAM
 * sixteen-core processor
 
@@ -98,11 +100,8 @@ pytest -v
 
 ## OCR as part of Digitalization Pipelines
 
-OCR is usually just a part of larger Digitalization Workflows. 
+OCR is usually just a part of larger Digitalization Workflows.
 
 The script `manage-container-ocr.sh` forms the OCR part of the Digitization Workflow at ULB Sachsen-Anhalt, which spans itself from the image source to delivering data towards the final presentation system of the library. These integration may differ in other Digitalization contexts, when the OCR Process is triggered by different mechanics.
 
-Data delivery to the host system is scheduled via cronjobs. When triggered, it's searching a small marker file called `meta_done`, which represents the previous stage in the workflow. After running the OCR-System, this marker file is moved on as `ocr_done`, which indicates the following step to continue since OCR has sucessfully finished.
-
-## License
-Under terms of the [MIT license](https://opensource.org/licenses/MIT)
+Data delivery to the host system is scheduled via cronjobs. When triggered, it's searching a marker file called `meta_done`, which represents the previous stage in the workflow. After running the OCR-System, this marker file is moved on as `ocr_done`, which indicates the following step OCR has sucessfully finished.

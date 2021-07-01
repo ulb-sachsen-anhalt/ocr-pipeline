@@ -22,6 +22,7 @@ OCR-System of project "Digitalisierung historischer deutscher Zeitungen" (2019-2
 * [Ubuntu 18.04 LTS Server](https://ubuntu.com/#download) or higher
 
 optional:
+
 * libsm6 (if OpenCV used)
 * python3-venv (if Python is used outside Container, i.e. running Tests)
 * configure extra flags
@@ -76,7 +77,7 @@ For local development, an installation of Python3 (version 3.6+) is required. Fo
 
 The Tesseract Instances use Python's `concurrent.futures.ProcessPoolExecutor` implementation and are therefore plattform dependent. It has issues both on Mac OS (Mojave and higher) and Windows (10) and also depends on the specific Python Version.  
 
-For local development it's also required to have a local Tesseract Installation with any required model configurations. 
+For local development it's also required to have a local Tesseract Installation with any required model configurations.
 
 Activate virtual Python environment and install required libraries on a Windows System:
 
@@ -104,4 +105,8 @@ OCR is usually just a part of larger Digitalization Workflows.
 
 The script `manage-container-ocr.sh` forms the OCR part of the Digitization Workflow at ULB Sachsen-Anhalt, which spans itself from the image source to delivering data towards the final presentation system of the library. These integration may differ in other Digitalization contexts, when the OCR Process is triggered by different mechanics.
 
-Data delivery to the host system is scheduled via cronjobs. When triggered, it's searching a marker file called `meta_done`, which represents the previous stage in the workflow. After running the OCR-System, this marker file is moved on as `ocr_done`, which indicates the following step OCR has sucessfully finished.
+Data delivery to the host system is scheduled via cronjobs. When triggered, it's searching a small marker file called `meta_done`, which represents the previous stage in the workflow. After running the OCR-System, this marker file is moved on as `ocr_done`, which indicates the following step OCR has sucessfully finished.
+
+## License
+
+Under terms of the [MIT license](https://opensource.org/licenses/MIT)

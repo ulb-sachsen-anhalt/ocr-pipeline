@@ -90,7 +90,7 @@ class StepIO(StepI):
         return self._path_next
 
     @path_next.setter
-    def path_out(self, path_next):
+    def path_next(self, path_next):
         self._path_next = path_next
 
 
@@ -175,7 +175,8 @@ class StepTesseract(StepIOExtern):
         if 'output_configs' in self._params:
             del self._params['output_configs']
         # otherwise output
-        outputs = [k for k,v in self._params.items() if v is None and k in ['alto','txt','pdf']]
+        outputs = [k for k, v in self._params.items() if v is None and k in [
+            'alto', 'txt', 'pdf']]
         if len(outputs) > 0:
             for output in outputs:
                 del self._params[output]
@@ -295,12 +296,12 @@ class StepPostMoveAlto(StepIO):
         shutil.copyfile(self._path_in, self._path_out)
 
     @property
-    def path_out(self):
+    def path_next(self):
         (folder, _) = split_path(self._path_out)
         return os.path.join(folder, self._filename + '.xml')
 
-    @path_out.setter
-    def path_out(self, path_target):
+    @path_next.setter
+    def path_next(self, path_target):
         (folder, _) = split_path(path_target)
         self._path_out = os.path.join(folder, self._filename + '.xml')
 
@@ -397,77 +398,6 @@ class StepEstimateOCR(StepI):
         coef = typo_errors / self.n_words * 100
         self.n_errs = typo_errors
         self.wer = round(coef, 3)
-
-    # @staticmethod
-    # def _to_textlines(file_path):
-    #     """Convert ALTO Textlines to plain text lines"""_get_data
-
-    #     textnodes = ET.parse(file_path).findall('.//alto:TextLine', NAMESPACES)
-    #     lines = []
-    #     for textnode in textnodes:
-    #         all_strings = textnode.findall('.//alto:String', NAMESPACES)
-    #         words = [s.attrib['CONTENT']
-    #                  for s in all_strings if s.attrib['CONTENT'].strip()]
-    #         if words:
-    #             lines.append(' '.join(words))
-    #     return lines
-
-    # @staticmethod
-    # def _get_data(lines):
-    #     """Transform text lines after preprocessing into data set"""
-
-    #     non_empty_lines = [l for l in lines if l.strip()]
-
-    #     (normalized_lines, n_normalized) = StepEstimateOCR._sanitize_wraps(
-    #         non_empty_lines)
-    #     filtered_lines = StepEstimateOCR._sanitize_chars(normalized_lines)
-    #     n_sparselines = 0
-    #     dense_lines = []
-    #     for filtered_line in filtered_lines:
-    #         # we do not want lines shorter than 2 chars
-    #         if len(filtered_line) > 2:
-    #             dense_lines.append(filtered_line)
-    #         else:
-    #             n_sparselines += 1
-
-    #     file_string = ' '.join(dense_lines)
-    #     return (file_string, len(lines), n_normalized, n_sparselines, len(dense_lines))
-
-    # @staticmethod
-    # def _sanitize_wraps(lines):
-    #     """Sanitize word wraps if last word token ends with '-' and another line following"""
-
-    #     normalized = []
-    #     n_normalized = 0
-    #     for i, line in enumerate(lines):
-    #         if i < len(lines)-1 and line.endswith("-"):
-    #             next_line_tokens = lines[i+1].split()
-    #             nextline_first_token = next_line_tokens.pop(0)
-    #             lines[i+1] = ' '.join(next_line_tokens)
-    #             line = line[:-1] + nextline_first_token
-    #             n_normalized += 1
-    #         normalized.append(line)
-    #     return (normalized, n_normalized)
-
-    # @staticmethod
-    # def _sanitize_chars(lines):
-    #     """Replace or remove nonrelevant chars for current german word error rate"""
-
-    #     sanitized = []
-    #     for line in lines:
-    #         text = line.strip()
-    #         bad_chars = '0123456789“„"\'?!*:-=[]()'
-    #         text = ''.join([c for c in text if not c in bad_chars])
-    #         if '..' in text:
-    #             text = text.replace('..', '')
-    #         if '  ' in text:
-    #             text = text.replace('  ', ' ')
-    #         if 'ſ' in text:
-    #             text = text.replace('ſ', 's')
-    #         text = ' '.join([t for t in text.split() if len(t) > 1])
-    #         sanitized.append(text)
-
-    #     return sanitized
 
     @property
     def statistics(self):

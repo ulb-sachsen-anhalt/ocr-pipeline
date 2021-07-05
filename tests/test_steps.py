@@ -123,13 +123,13 @@ def test_step_copy_alto_back(path_tiff):
     # act
     step = StepPostMoveAlto({})
     step.path_in = path_tiff
-    step.path_out = path_target
+    step.path_next = path_target
     step.execute()
 
     # assert
     assert path_tiff == step.path_in
-    assert step.path_out == '/tmp/500_gray00001_st.xml'
-    assert os.path.exists(step.path_out)
+    assert step.path_next == '/tmp/500_gray00001_st.xml'
+    assert os.path.exists(step.path_next)
 
 
 def test_step_replace():

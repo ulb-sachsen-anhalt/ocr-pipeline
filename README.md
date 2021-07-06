@@ -4,6 +4,13 @@
 
 OCR-System of project "Digitalisierung historischer deutscher Zeitungen" (2019-2021). Processes large chunks of bare Imagefiles and creates a corresponding OCR-Output in ALTO-XML V3 format for each file using the OpenSource Engine [Tesseract-OCR](https://github.com/tesseract-ocr/tesseract).
 
+* [Features](#features)
+* [Installation](#installation)
+* [Configuration and Usage](#configuration-and-usage)
+* [Development](#development)
+* [OCR as part of digitalization pipelines](#ocr-as-part-of-digitalization-pipelines)
+* [License](#license)
+
 ## Features
 
 * configuration

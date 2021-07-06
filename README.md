@@ -69,6 +69,11 @@ It is possible to texecute the pipeline locally without additional container log
 python ./ocr_pipeline.py <required scandata path> --workdir <optional, default is local folder> --executors <optional> --models <multiple can be chained with +> --extra (Tesseract options)
 ```
 
+## Configuration and Usage
+
+The ocr-pipeline can be configured by using different config.ini-files for different workflows. These config.ini-files contain the order and parameters of the steps that will be used in the workflow itself. Each step needs to be implemented in the steps module.
+There is also a `pipeline` section in the config files, containing information on the executors, as well as valid file extensions for input.
+
 ## Development
 
 ### Setup

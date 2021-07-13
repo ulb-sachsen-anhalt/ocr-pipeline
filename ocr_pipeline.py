@@ -212,6 +212,10 @@ class OCRPipeline():
         invalids = [r for r in estms if r[1] == -1]
         sorteds = sorted(valids, key=lambda r: r[1])
         aggregations = StepEstimateOCR.analyze(sorteds)
+        end_time = time.strftime('%Y-%m-%d_%H-%M', time.localtime())
+        file_name = os.path.basename(self.scandata_path)
+        file_path = os.path.join(self.scandata_path, f"{file_name}_{end_time}.wtr")
+        self.log('info', f"store mean '{aggregations[0]}' in '{file_path}'")
         if aggregations:
             (mean, bins) = aggregations
             b_1 = len(bins[0])
@@ -223,10 +227,6 @@ class OCRPipeline():
             n_i = len(invalids)
             self.log(
                 'info', f"WTR (Mean) : '{mean}' (1: {b_1}/{n_v}, ... 5: {b_5}/{n_v})")
-            end_time = time.strftime('%Y-%m-%d_%H-%M', time.localtime())
-            file_name = os.path.basename(self.scandata_path)
-            file_path = os.path.join(
-                self.scandata_path, f"{file_name}_{end_time}.wtr")
             with open(file_path, 'w') as outfile:
                 outfile.write(
                     f"{mean},{b_1},{b_2},{b_3},{b_4},{b_5},{len(estms)},{n_i}\n")
@@ -341,6 +341,7 @@ if __name__ == '__main__':
     try:
         with concurrent.futures.ProcessPoolExecutor(max_workers=EXECUTORS) as executor:
             RESULTS = list(executor.map(_execute_pipeline, INPUT_NUMBERED))
+            pipeline.log('debug', f"having '{len(RESULTS)}' workflow results")
             estimations = [r for r in RESULTS if r[1] > MARK_MISSING_ESTM]
             if estimations:
                 pipeline.store_estimations(estimations)

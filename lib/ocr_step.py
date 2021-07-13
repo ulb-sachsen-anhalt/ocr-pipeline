@@ -353,28 +353,26 @@ class StepEstimateOCR(StepI):
 
     def execute(self):
         self.lines = altolines2textlines(self.path_in)
-        if not self.lines:
-            raise StepException(f"No Textlines in '{self.path_in}'!")
+        if len(self.lines) > 0:
+            (word_string, n_lines, n_normed, n_sparse,
+            n_dense) = textlines2data(self.lines)
+            self.n_lines_in = n_lines
+            self.n_shorts = n_sparse
+            self.n_wraps = n_normed
+            self.n_lines_out = n_dense
+            self.n_words = len(word_string.split())
 
-        (word_string, n_lines, n_normed, n_sparse,
-         n_dense) = textlines2data(self.lines)
-        self.n_lines_in = n_lines
-        self.n_shorts = n_sparse
-        self.n_wraps = n_normed
-        self.n_lines_out = n_dense
-        self.n_words = len(word_string.split())
-
-        params = {'language': self.lang,
-                  'text': word_string,
-                  'enabledRules': self.rules,
-                  'enabledOnly': 'true'}
-        try:
-            response_data = self.request_data(params)
-            self.postprocess_response(response_data)
-        except ConnectionError as exc:
-            raise StepException(f"Invalid connection: {exc}") from exc
-        except Exception:
-            raise StepException(f"Invalid data: {sys.exc_info()[0]}")
+            params = {'language': self.lang,
+                    'text': word_string,
+                    'enabledRules': self.rules,
+                    'enabledOnly': 'true'}
+            try:
+                response_data = self.request_data(params)
+                self.postprocess_response(response_data)
+            except ConnectionError as exc:
+                raise StepException(f"Invalid connection: {exc}") from exc
+            except Exception:
+                raise StepException(f"Invalid data: {sys.exc_info()[0]}")
 
     def request_data(self, params):
         """Get word errors for text from webservice"""

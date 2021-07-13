@@ -349,15 +349,19 @@ def test_estimate_handle_large_wtr():
 
 
 def test_step_estimateocr_empty_alto(empty_ocr):
-    """Determine bahavior of stepestimator when confronted with empty alto file"""
+    """
+    Determine bahavior of stepestimator when confronted with empty alto file
+    Modified: in this (rare) case, just do nothing, do *not* raise any Exception
+    """
 
     step = StepEstimateOCR({})
     step.path_in = empty_ocr
 
     # act
-    with pytest.raises(StepException) as exec_info:
-        step.execute()
-    assert "No Textlines" in str(exec_info.value)
+    step.execute()
+
+    # assert
+    assert step.statistics[0] == -1
 
 
 def test_service_down():

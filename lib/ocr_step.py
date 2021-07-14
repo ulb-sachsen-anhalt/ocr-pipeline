@@ -137,8 +137,8 @@ class StepTesseract(StepIOExtern):
     @property
     def path_next(self):
         if self._path_next_dir:
-            return os.path.join(self._path_next_dir, self._filename+'.xml')
-        return os.path.join(self._path_in_dir, self._filename+'.xml')
+            return os.path.join(self._path_next_dir, self._filename + '.xml')
+        return os.path.join(self._path_in_dir, self._filename + '.xml')
 
     @property
     def cmd(self):
@@ -194,7 +194,8 @@ def parse_dict(the_dict):
         the_dict = the_dict.replace('{', '').replace('}', '')
         tkns = the_dict.split(',')
         if len(tkns) > 1:
-            return {tkn.split(':')[0].strip(): tkn.split(':')[1].strip() for tkn in tkns}
+            return {tkn.split(':')[0].strip(): tkn.split(':')[
+                1].strip() for tkn in tkns}
     if isinstance(the_dict, dict):
         return the_dict
     return {}
@@ -258,7 +259,8 @@ class StepPostReplaceChars(StepIO):
     def statistics(self):
         """Statistics about Replacements"""
         if self._replacements:
-            return [':'.join([k, str(v)]) for k, v in self._replacements.items()]
+            return [':'.join([k, str(v)])
+                    for k, v in self._replacements.items()]
         return []
 
 
@@ -315,7 +317,8 @@ class StepPostRemoveFile(StepI):
         self._suffix = params.get('file_suffix', 'tif')
 
     def execute(self):
-        if os.path.exists(self.path_in) and os.path.basename(self.path_in).endswith(self._suffix):
+        if os.path.exists(self.path_in) and os.path.basename(
+                self.path_in).endswith(self._suffix):
             os.remove(self.path_in)
             self._file_removed = True
 
@@ -355,24 +358,25 @@ class StepEstimateOCR(StepI):
         self.lines = altolines2textlines(self.path_in)
         if len(self.lines) > 0:
             (word_string, n_lines, n_normed, n_sparse,
-            n_dense) = textlines2data(self.lines)
-            self.n_lines_in = n_lines
-            self.n_shorts = n_sparse
-            self.n_wraps = n_normed
-            self.n_lines_out = n_dense
-            self.n_words = len(word_string.split())
+             n_dense) = textlines2data(self.lines)
+            if word_string:
+                self.n_lines_in = n_lines
+                self.n_shorts = n_sparse
+                self.n_wraps = n_normed
+                self.n_lines_out = n_dense
+                self.n_words = len(word_string.split())
 
-            params = {'language': self.lang,
-                    'text': word_string,
-                    'enabledRules': self.rules,
-                    'enabledOnly': 'true'}
-            try:
-                response_data = self.request_data(params)
-                self.postprocess_response(response_data)
-            except ConnectionError as exc:
-                raise StepException(f"Invalid connection: {exc}") from exc
-            except Exception:
-                raise StepException(f"Invalid data: {sys.exc_info()[0]}")
+                params = {'language': self.lang,
+                          'text': word_string,
+                          'enabledRules': self.rules,
+                          'enabledOnly': 'true'}
+                try:
+                    response_data = self.request_data(params)
+                    self.postprocess_response(response_data)
+                except ConnectionError as exc:
+                    raise StepException(f"Invalid connection: {exc}") from exc
+                except Exception:
+                    raise StepException(f"Invalid data: {sys.exc_info()[0]}")
 
     def request_data(self, params):
         """Get word errors for text from webservice"""
@@ -463,7 +467,8 @@ def textlines2data(lines, minlen=2):
             n_sparselines += 1
 
     file_string = ' '.join(dense_lines)
-    return (file_string, len(lines), n_normalized, n_sparselines, len(dense_lines))
+    return (file_string, len(lines), n_normalized,
+            n_sparselines, len(dense_lines))
 
 
 def _sanitize_wraps(lines):
@@ -472,10 +477,10 @@ def _sanitize_wraps(lines):
     normalized = []
     n_normalized = 0
     for i, line in enumerate(lines):
-        if i < len(lines)-1 and line.endswith("-"):
-            next_line_tokens = lines[i+1].split()
+        if i < len(lines) - 1 and line.endswith("-"):
+            next_line_tokens = lines[i + 1].split()
             nextline_first_token = next_line_tokens.pop(0)
-            lines[i+1] = ' '.join(next_line_tokens)
+            lines[i + 1] = ' '.join(next_line_tokens)
             line = line[:-1] + nextline_first_token
             n_normalized += 1
         normalized.append(line)
@@ -488,7 +493,7 @@ def _sanitize_chars(lines):
     sanitized = []
     for line in lines:
         text = line.strip()
-        bad_chars = '0123456789“„"\'?!*:-=[]()'
+        bad_chars = '0123456789“„"\'?!*.;:-=[]()|'
         text = ''.join([c for c in text if not c in bad_chars])
         if '..' in text:
             text = text.replace('..', '')

@@ -1,8 +1,16 @@
 # -*- coding: utf-8 -*-
 """Tests OCR API"""
 
+import json
 import os
+import pathlib
 import shutil
+
+from unittest import (
+    mock
+)
+
+import requests
 
 import pytest
 
@@ -19,6 +27,8 @@ from lib.ocr_step import (
     textlines2data,
     altolines2textlines,
 )
+
+PROJECT_ROOT_DIR = pathlib.Path(__file__).resolve().parents[1]
 
 
 def test_stepio_not_initable():
@@ -364,15 +374,22 @@ def test_step_estimateocr_empty_alto(empty_ocr):
     assert step.statistics[0] == -1
 
 
-def test_service_down():
+@mock.patch("requests.head")
+def test_service_down(mock_requests):
     """Determine Behavior when url not accessible"""
 
-    step = StepEstimateOCR({})
+    # arrange
+    params = {'service_url': 'http://localhost:8010/v2/check'}
+    step = StepEstimateOCR(params)
+    mock_requests.side_effect = requests.ConnectionError
+
+    # assert
     assert not step.is_available()
+    assert mock_requests.called == 1
 
 
-def test_step_estimateocr_lines_and_tokens():
-    """Test behavior of for valid ALTO-output"""
+def test_step_estimateocr_textline_conversions():
+    """Test functional behavior for valid ALTO-output"""
 
     test_data = os.path.join('tests', 'resources', '500_gray00003.xml')
 
@@ -383,4 +400,63 @@ def test_step_estimateocr_lines_and_tokens():
 
     assert len(lines) == 370
     assert n_lines == 370
-    assert n_lines_out == 350
+    assert n_lines_out == 346
+
+# pylint: disable=unused-argument
+
+
+def _fixture_languagetool(*args):
+    result = mock.Mock()
+    result.status_code = 200
+    response_path = os.path.join(PROJECT_ROOT_DIR, 'tests', 'resources',
+                                 'languagetool_response_500_gray00003.json')
+    with open(response_path) as the_json_file:
+        result.json.return_value = json.load(the_json_file)
+    return result
+
+
+@mock.patch("requests.post")
+def test_step_estimateocr_lines_and_tokens(mock_requests):
+    """Test behavior of for valid ALTO-output"""
+
+    # arrange
+    test_data = os.path.join(PROJECT_ROOT_DIR,
+                             'tests', 'resources', '500_gray00003.xml')
+    mock_requests.side_effect = _fixture_languagetool
+    params = {'service_url': 'http://localhost:8010/v2/check',
+              'language': 'de-DE',
+              'enabled_rules': 'GERMAN_SPELLER_RULE'
+              }
+    step = StepEstimateOCR(params)
+    step.path_in = test_data
+
+    # act
+    step.execute()
+
+    assert step.statistics
+    assert mock_requests.called == 1
+
+
+@mock.patch("requests.get")
+def test_stepestimate_invalid_data(mock_request):
+    """
+    Check that in case of *really empty* data,
+    language-tool is not called after all
+    """
+
+    # arrange
+    data_path = os.path.join(
+        PROJECT_ROOT_DIR, 'tests/resources/1667524704_J_0173_0173.xml')
+    params = {'service_url': 'http://localhost:8010/v2/check',
+              'language': 'de-DE',
+              'enabled_rules': 'GERMAN_SPELLER_RULE'
+              }
+    step = StepEstimateOCR(params)
+    step.path_in = data_path
+
+    # act
+    step.execute()
+
+    # assert
+    assert step.statistics
+    assert not mock_request.called

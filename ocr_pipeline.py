@@ -14,7 +14,7 @@ import tempfile
 import time
 
 # pylint: disable=unused-import
-# import statement *is* necessary
+# import statement *is_REALLY* necessary
 # for global clazz loading
 from lib.ocr_step import (
     StepPostReplaceChars,

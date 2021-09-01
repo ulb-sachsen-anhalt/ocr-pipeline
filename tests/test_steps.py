@@ -38,17 +38,23 @@ def test_stepio_not_initable():
         StepIO()    # pylint: disable=abstract-class-instantiated
     assert "Can't instantiate" in str(exec_info.value)
 
+TIF_001 = '001.tif'
+TIF_002 = '002.tif'
 
-@pytest.fixture(name='path_tiff')
-def fixture_path_existing(tmpdir):
+@pytest.fixture(name='max_dir')
+def fixture_path_existing(tmp_path):
     """supply valid path"""
 
-    path = tmpdir.mkdir("scan").join("500_gray00001_st.tif")
-    path.write_binary(bytearray([120, 3, 255, 0, 100]))
-    return str(path)
+    max_dir = tmp_path / 'MAX'
+    max_dir.mkdir()
+    path1 = max_dir / TIF_001
+    path1.write_bytes(bytearray([120, 3, 255, 0, 100]))
+    path2 = max_dir / TIF_002
+    path2.write_bytes(bytearray([120, 3, 255, 0, 100]))
+    return str(max_dir)
 
 
-def test_step_tesseract_list_langs(path_tiff):
+def test_step_tesseract_list_langs(max_dir):
     """Tesseract list-langs"""
 
     # arrange
@@ -56,14 +62,13 @@ def test_step_tesseract_list_langs(path_tiff):
 
     # act
     step = StepTesseract(args)
-    step.path_in = path_tiff
+    step.path_in = os.path.join(max_dir, TIF_001)
 
     # assert
     assert ' --list-langs' in step.cmd
-    assert step.path_in == path_tiff
 
 
-def test_step_tesseract_path_out_folder(path_tiff):
+def test_step_tesseract_path_out_folder(max_dir):
     """Tesseract path to write result"""
 
     # arrange
@@ -71,18 +76,63 @@ def test_step_tesseract_path_out_folder(path_tiff):
 
     # act
     step = StepTesseract(args)
-    step.path_in = path_tiff
+    step.path_in = os.path.join(max_dir, TIF_001)
 
     # assert
-    assert 'scan/500_gray00001_st.xml' in step.path_next
+    assert '001.xml' in step.path_next
+
+def test_step_tesseract_change_input(max_dir):
+    """Tesseract path to write result"""
+
+    # arrange
+    args = {'-l': 'deu', 'alto': None}
+
+    # act
+    step = StepTesseract(args)
+    step.path_in = os.path.join(max_dir, TIF_001)
+
+    # assert
+    assert 'MAX/001.tif ' in step.cmd
+    assert 'MAX/001.xml ' not in step.cmd
+    assert 'MAX/001 ' in step.cmd
+
+    # re-act
+    step.path_in = os.path.join(max_dir, TIF_002)
+
+    # re-assert
+    assert 'MAX/001.tif ' not in step.cmd
+    assert 'MAX/002.tif ' in step.cmd
+    assert 'MAX/002 ' in step.cmd
+
+def test_step_tesseract_change_input_with_dir(max_dir):
+    """Tesseract path to write result"""
+
+    # arrange
+    args = {'-l': 'deu', 'alto': None}
+
+    # act
+    step = StepTesseract(args)
+    step.path_in = os.path.join(max_dir, TIF_001)
+
+    # assert
+    assert 'MAX/001.tif ' in step.cmd
+    assert 'MAX/001 ' in step.cmd
+
+    # re-act
+    step.path_in = os.path.join(max_dir, TIF_002)
+
+    # re-assert
+    assert 'MAX/001.tif ' not in step.cmd
+    assert 'MAX/002.tif ' in step.cmd
+    assert 'MAX/002 ' in step.cmd
 
 
-def test_step_tesseract_invalid_params(path_tiff):
+def test_step_tesseract_invalid_params(max_dir):
     """Tesseract path to write result"""
 
     # act
     with pytest.raises(StepException) as excinfo:
-        StepTesseract(path_tiff)
+        StepTesseract(max_dir)
 
     # assert
     actual_exc_text = str(excinfo.value)
@@ -90,7 +140,7 @@ def test_step_tesseract_invalid_params(path_tiff):
     assert '"need more than 1 value to unpack" !' in actual_exc_text
 
 
-def test_step_tesseract_full_args(path_tiff):
+def test_step_tesseract_full_args(max_dir):
     """Tesseract check cmd from args from following schema:
     'tesseract --dpi 500 <read_path> <out_path> -l <DEFAULT_CHARSET> alto'
     """
@@ -101,15 +151,17 @@ def test_step_tesseract_full_args(path_tiff):
 
     # act
     step = StepTesseract(args)
-    step.path_in = path_tiff
+    step.path_in = os.path.join(max_dir, TIF_001)
 
     # assert
-    cmd = f'tesseract {path_tiff} {os.path.splitext(path_tiff)[0]} --dpi 470 -l ulbfrk alto'
+    input_tif = os.path.join(max_dir, TIF_001)
+    output_xml = os.path.splitext(os.path.join(max_dir, TIF_001))[0]
+    cmd = f'tesseract {input_tif} {output_xml} --dpi 470 -l ulbfrk alto'
     assert cmd == step.cmd
-    assert step.path_next.endswith('500_gray00001_st.xml')
+    assert step.path_next.endswith('001.xml')
 
 
-def test_step_tesseract_different_configurations(path_tiff):
+def test_step_tesseract_different_configurations(max_dir):
     """Check cmd from args use different lang config"""
 
     # arrange
@@ -117,28 +169,33 @@ def test_step_tesseract_different_configurations(path_tiff):
 
     # act
     step = StepTesseract(args)
-    step.path_in = path_tiff
+    step.path_in = os.path.join(max_dir, TIF_001)
 
     # assert
-    tesseract_cmd = f'tesseract {path_tiff} {os.path.splitext(path_tiff)[0]} -l frk_ulbzd1 alto txt'
+    input_tif = os.path.join(max_dir, TIF_001)
+    output_xml = os.path.splitext(os.path.join(max_dir, TIF_001))[0]
+    tesseract_cmd = f'tesseract {input_tif} {output_xml} -l frk_ulbzd1 alto txt'
     assert tesseract_cmd == step.cmd
 
 
-def test_step_copy_alto_back(path_tiff):
-    """Move ALTO file back to where we started"""
+def test_step_copy_alto_back(max_dir):
+    """
+    Move ALTO file back to where we started
+    Preserve filename, only switch directory
+    """
 
     # arrange
     path_target = '/tmp/500_gray00001_st.tif'
 
     # act
     step = StepPostMoveAlto({})
-    step.path_in = path_tiff
+    step.path_in = os.path.join(max_dir, TIF_001)
     step.path_next = path_target
     step.execute()
 
     # assert
-    assert path_tiff == step.path_in
-    assert step.path_next == '/tmp/500_gray00001_st.xml'
+    assert os.path.join(max_dir, TIF_001) == step.path_in
+    assert step.path_next == '/tmp/001.xml'
     assert os.path.exists(step.path_next)
 
 
@@ -288,14 +345,14 @@ def test_remove_failed():
         step.path_in = 'qwerrwe.tif'
 
 
-def test_remove_succeeded(path_tiff):
+def test_remove_succeeded(max_dir):
     """Test remove success"""
 
     # arrange
     step = StepPostRemoveFile({'file_suffix': 'tif'})
 
     # act
-    step.path_in = path_tiff
+    step.path_in = os.path.join(max_dir, TIF_001)
     step.execute()
 
     # assert

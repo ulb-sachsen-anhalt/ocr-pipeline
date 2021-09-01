@@ -84,7 +84,10 @@ class OCRPipeline():
                 sect_tess['tesseract_bin'] = arguments['tesseract_bin']
 
     def _get_tesseract_section(self):
-        return [self.cfg[s] for s in self.cfg.sections() for k, v in self.cfg[s].items() if k == 'type' and 'esseract' in str(v)]
+        return [self.cfg[s] 
+                for s in self.cfg.sections()
+                for k, v in self.cfg[s].items()
+                if k == 'type' and 'esseract' in str(v)]
 
     def get_steps(self):
         """
@@ -277,16 +280,16 @@ def _execute_pipeline(*args):
             result = pipeline.profile(step.execute)
 
             # log current step
-            if hasattr(step, 'statistics'):
+            if hasattr(step, 'statistics') and len(step.statistics) > 0:
                 statistics = step.statistics
-                pipeline.log('debug', f"[{file_name}] {statistics}")
+                pipeline.log('debug', f"[{file_name}] statistics: {statistics}")
                 if result and isinstance(step, StepEstimateOCR):
                     outcome = (file_name,) + statistics
             pipeline.log('info', f"[{file_name}] step {result}")
 
             # prepare next step
             if hasattr(step, 'path_next') and step.path_next is not None:
-                pipeline.log('debug', f'{step} path_next: {step.path_next}')
+                pipeline.log('debug', f'{step.__class__.__qualname__}.path_next: {step.path_next}')
                 next_in = step.path_next
 
         return outcome

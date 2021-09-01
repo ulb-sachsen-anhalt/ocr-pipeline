@@ -45,7 +45,7 @@ def dict2line(the_dict, the_glue):
         if val:
             return ' ' + key + glue + str(val)
         return ' ' + key
-    return ''.join([impl(k, v, the_glue) for k, v in the_dict.items()])
+    return ''.join([impl(k, v, the_glue) for k, v in the_dict.items()]).strip()
 
 
 class StepException(Exception):
@@ -134,29 +134,8 @@ class StepTesseract(StepIOExtern):
         if 'path_out_dir' in self._params:
             self._path_out_dir = self._params['path_out_dir']
 
-    @property
-    def path_next(self):
-        if self._path_next_dir:
-            return os.path.join(self._path_next_dir, self._filename + '.xml')
-        return os.path.join(self._path_in_dir, self._filename + '.xml')
-
-    @property
-    def cmd(self):
-        """
-        Update Command with specific knowledge from params
-        where to store alto data, dpi and language, ...
-        """
-        if self._cmd is not None:
-            return self._cmd
-
-        if self._path_next_dir:
-            tmp_name = os.path.join(self._path_next_dir, self._filename)
-        else:
-            tmp_name = os.path.join(self._path_in_dir, self._filename)
-        self._params.update({tmp_name: None})
-        self._params.move_to_end(tmp_name, last=False)
-        self._params.update({self.path_in: None})
-        self._params.move_to_end(self.path_in, last=False)
+        # common process params
+        # where to store alto data, dpi and language
         xtras = self._params.get('extra')
         if xtras:
             del self._params['extra']
@@ -184,7 +163,27 @@ class StepTesseract(StepIOExtern):
         self._params.update({final: None})
         self._params.move_to_end(final)
 
-        self._cmd = self._bin + dict2line(self._params, ' ')
+    @property
+    def path_next(self):
+        _filename = self._filename
+        if not _filename.endswith('.xml'):
+            _filename += '.xml'
+
+        # calculate abs path
+        self._path_next = None
+        if self._path_next_dir:
+            self._path_next = os.path.join(self._path_next_dir, _filename)
+        else:
+            self._path_next = os.path.join(self._path_in_dir, _filename)
+        return self._path_next
+
+    @property
+    def cmd(self):
+        """
+        Update Command with specific in/output paths
+        """
+        out_file = os.path.splitext(self.path_next)[0]
+        self._cmd = f"{self._bin} {self.path_in} {out_file} {dict2line(self._params, ' ')}"
         return self._cmd
 
 

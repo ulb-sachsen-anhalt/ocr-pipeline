@@ -45,7 +45,6 @@ class OCRPipeline():
         if _path.endswith('/'):
             _path = _path[0:-1]
         self.scandata_path = _path
-        self.steps = []
         if conf_file is None:
             project_dir = os.path.dirname(__file__)
             conf_file = os.path.join(project_dir, DEFAULT_PATH_CONFIG)
@@ -84,16 +83,19 @@ class OCRPipeline():
                 sect_tess['tesseract_bin'] = arguments['tesseract_bin']
 
     def _get_tesseract_section(self):
-        return [self.cfg[s] 
+        return [self.cfg[s]
                 for s in self.cfg.sections()
                 for k, v in self.cfg[s].items()
                 if k == 'type' and 'esseract' in str(v)]
 
     def get_steps(self):
         """
-        Parse configured steps, which must be labeled
-        like 'step_01', step_02' and so forth
+        Create all configured steps each time again
+        labeled like 'step_01', step_02' and so forth
+        to ensure their sequence
         """
+
+        steps = []
         step_configs = [
             s for s in self.cfg.sections() if s.startswith('step_')]
         sorted_steps = sorted(step_configs, key=lambda s: int(s.split('_')[1]))
@@ -102,8 +104,8 @@ class OCRPipeline():
             the_keys = self.cfg[step].keys()
             the_kwargs = {k: self.cfg[step][k] for k in the_keys}
             the_step = globals()[the_type](the_kwargs)
-            self.steps.append(the_step)
-        return self.steps
+            steps.append(the_step)
+        return steps
 
     def _init_logger(self):
         fallback_logdir = os.path.join(
@@ -198,16 +200,6 @@ class OCRPipeline():
             if os.path.isfile(fpath):
                 os.unlink(fpath)
 
-    def profile(self, func):
-        """profile execution time of provided function"""
-
-        func_start = time.time()
-        func()
-        func_end = time.time()
-        func_delta = func_end - func_start
-        label = str(func).split()[4].split('.')[2]
-        return f"'{label}' passed in {func_delta:.2f}s"
-
     def store_estimations(self, estms):
         """Postprocessing of OCR-Quality Estimation Data"""
 
@@ -255,29 +247,38 @@ class OCRPipeline():
             self.scandata_path).iterdir() if _f(i)]
         return sorted(image_paths)
 
+def profile(func):
+    """profile execution time of provided function"""
+
+    func_start = time.time()
+    func()
+    func_end = time.time()
+    func_delta = func_end - func_start
+    label = str(func).split()[4].split('.')[2]
+    return f"'{label}' passed in {func_delta:.2f}s"
 
 def _execute_pipeline(*args):
     number = args[0][0]
     start_path = args[0][1]
-    file_marker = f"{number:04d}/{len(INPUT_PATHS):04d}"
+    file_nr = f"{number:04d}/{len(INPUT_PATHS):04d}"
     next_in = start_path
     step_label = 'start'
     file_name = os.path.basename(start_path)
     outcome = (file_name, MARK_MISSING_ESTM)
 
     try:
-        workdir = pipeline.cfg.get('pipeline', 'workdir')
-
+        the_steps = pipeline.get_steps()
         pipeline.log(
-            'info', f"[{file_name}] [{file_marker}] in {workdir}")
+            'info', f"[{file_name}] [{file_nr}] start pipeline with {the_steps}")
 
-        for step in STEPS:
+        #for step in STEPS:
+        for step in the_steps:
             step.path_in = next_in
             if isinstance(step, StepIOExtern):
                 pipeline.log('debug', f"[{file_name}] {step.cmd}")
 
             # the actual execution
-            result = pipeline.profile(step.execute)
+            result = profile(step.execute)
 
             # log current step
             if hasattr(step, 'statistics') and len(step.statistics) > 0:
@@ -289,9 +290,11 @@ def _execute_pipeline(*args):
 
             # prepare next step
             if hasattr(step, 'path_next') and step.path_next is not None:
-                pipeline.log('debug', f'{step.__class__.__qualname__}.path_next: {step.path_next}')
+                pipeline.log('debug', f'{step}.path_next: {step.path_next}')
                 next_in = step.path_next
 
+        pipeline.log(
+            'info', f"[{file_name}] [{file_nr}] done pipeline with {len(the_steps)} steps")
         return outcome
 
     except StepException as exc:
@@ -335,9 +338,9 @@ if __name__ == '__main__':
     # update pipeline configuration with cli args
     pipeline.merge_args(ARGS)
     EXECUTORS = pipeline.cfg.getint('pipeline', 'executors')
-    STEPS = pipeline.get_steps()
     INPUT_PATHS = pipeline.get_input_sorted()
-    INPUT_NUMBERED = [(i, img) for i, img in enumerate(INPUT_PATHS, start=1)]
+    INPUT_NUMBERED = [(i, img)
+                      for i, img in enumerate(INPUT_PATHS, start=1)]
     START_TS = time.time()
 
     # perform sequential part of pipeline with parallel processing

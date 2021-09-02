@@ -9,7 +9,8 @@ import configparser
 import pytest
 
 from ocr_pipeline import (
-    OCRPipeline
+    OCRPipeline,
+    profile
 )
 from lib.ocr_step import (
     StepTesseract,
@@ -168,7 +169,7 @@ def test_ocr_pipeline_prepare_workdir(default_pipeline):
         == '/opt/ocr-pipeline/workdir'
 
 
-def test_ocr_pipeline_profile(default_pipeline):
+def test_ocr_pipeline_profile():
     """check profiling"""
 
     # arrange
@@ -181,7 +182,7 @@ def test_ocr_pipeline_profile(default_pipeline):
 
     # act
     inner = InnerClass()
-    result = default_pipeline.profile(inner.func)
+    result = profile(inner.func)
     assert "'test_ocr_pipeline_profile' passed in" in result
 
 

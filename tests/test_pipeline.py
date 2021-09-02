@@ -202,7 +202,7 @@ def test_ocr_pipeline_estimations(default_pipeline):
 
 
 @pytest.fixture(name="custom_config_pipeline")
-def fixture_custom_config_pipeline(a_workspace):
+def _fixture_custom_config_pipeline(a_workspace):
     data_dir = a_workspace / "scandata"
     log_dir = a_workspace / "log"
     conf_dir = a_workspace / "conf"
@@ -232,6 +232,48 @@ def test_pipeline_step_tesseract(custom_config_pipeline, a_workspace):
     assert the_cmd_tokens[3] == '-l'
     assert the_cmd_tokens[4] == 'frk+deu'
     assert the_cmd_tokens[5] == 'alto'
+
+
+@pytest.fixture(name="recursive_workspace")
+def _recursive_workspace(tmp_path):
+    """create workspace fixture with 2 sub dirs"""
+
+    img_root = tmp_path / "scans"
+    img_root.mkdir()
+    scan_dir01 = img_root / "scandata1"
+    scan_dir01.mkdir()
+    scan_dir02 = img_root / "scandata2"
+    scan_dir02.mkdir()
+    log_dir = tmp_path / "log"
+    log_dir.mkdir()
+
+    path_scan_0001 = scan_dir01 / RES_0001_TIF
+    path_scan_0002 = scan_dir02 / RES_0003_JPG
+    path_mark_prev = img_root / "ocr_busy"
+    with open(path_mark_prev, 'w') as marker_file:
+        marker_file.write("previous state\n")
+
+    shutil.copyfile(RES_00041_XML, path_scan_0001)
+    shutil.copyfile(RES_00041_XML, path_scan_0002)
+
+    log_dir = log_dir / 'ocr-pipeline-log'
+    return tmp_path
+
+
+def test_pipeline_gather_images_recursevly(recursive_workspace):
+    """Behavior if OCR-Input is collected in sub dirs"""
+
+    # arrange
+    log_dir = recursive_workspace / "log"
+    pipeline = OCRPipeline(str(recursive_workspace), log_dir=str(log_dir))
+
+    # act
+    input_paths = pipeline.get_input_sorted(recursive=True)
+
+    # assert
+    assert len(input_paths) == 2
+    assert "scans/scandata1/0001.tif" in input_paths[0]
+    assert "scans/scandata2/0003.jpg" in input_paths[1]
 
 
 def test_pipeline_step_replace(custom_config_pipeline):

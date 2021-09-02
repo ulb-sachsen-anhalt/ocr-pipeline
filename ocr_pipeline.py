@@ -209,7 +209,8 @@ class OCRPipeline():
         aggregations = StepEstimateOCR.analyze(sorteds)
         end_time = time.strftime('%Y-%m-%d_%H-%M', time.localtime())
         file_name = os.path.basename(self.scandata_path)
-        file_path = os.path.join(self.scandata_path, f"{file_name}_{end_time}.wtr")
+        file_path = os.path.join(
+            self.scandata_path, f"{file_name}_{end_time}.wtr")
         self.log('info', f"store mean '{aggregations[0]}' in '{file_path}'")
         if aggregations:
             (mean, bins) = aggregations
@@ -231,8 +232,8 @@ class OCRPipeline():
                 outfile.write("\n")
                 return file_path
 
-    def get_input_sorted(self):
-        """get input data as sorted list"""
+    def get_input_sorted(self, recursive=False):
+        """get input data as sorted list, opt recursive"""
 
         exts = [self.cfg.get('pipeline', 'file_ext')]
         if "," in exts[0]:
@@ -242,10 +243,20 @@ class OCRPipeline():
             for file_ext in exts:
                 if str(path).endswith(file_ext):
                     return True
+            return False
 
-        image_paths = [str(i) for i in pathlib.Path(
-            self.scandata_path).iterdir() if _f(i)]
-        return sorted(image_paths)
+        paths = []
+        if not recursive:
+            paths = [str(p)
+                     for p in pathlib.Path(self.scandata_path).iterdir()
+                     if _f(p)]
+        else:
+            paths = [os.path.join(curr,f)
+                     for curr, _, files in os.walk(self.scandata_path)
+                     for f in files
+                     if _f(f)]
+        return sorted(paths)
+
 
 def profile(func):
     """profile execution time of provided function"""
@@ -256,6 +267,7 @@ def profile(func):
     func_delta = func_end - func_start
     label = str(func).split()[4].split('.')[2]
     return f"'{label}' passed in {func_delta:.2f}s"
+
 
 def _execute_pipeline(*args):
     number = args[0][0]
@@ -271,7 +283,7 @@ def _execute_pipeline(*args):
         pipeline.log(
             'info', f"[{file_name}] [{file_nr}] start pipeline with {the_steps}")
 
-        #for step in STEPS:
+        # for step in STEPS:
         for step in the_steps:
             step.path_in = next_in
             if isinstance(step, StepIOExtern):
@@ -283,7 +295,8 @@ def _execute_pipeline(*args):
             # log current step
             if hasattr(step, 'statistics') and len(step.statistics) > 0:
                 statistics = step.statistics
-                pipeline.log('debug', f"[{file_name}] statistics: {statistics}")
+                pipeline.log(
+                    'debug', f"[{file_name}] statistics: {statistics}")
                 if result and isinstance(step, StepEstimateOCR):
                     outcome = (file_name,) + statistics
             pipeline.log('info', f"[{file_name}] step {result}")
@@ -309,20 +322,47 @@ def _execute_pipeline(*args):
 if __name__ == '__main__':
     APP_ARGUMENTS = argparse.ArgumentParser(
         formatter_class=argparse.RawTextHelpFormatter)
-    APP_ARGUMENTS.add_argument("scandata", help="path to scandata dir")
     APP_ARGUMENTS.add_argument(
-        "-c", "--config", required=False, help="path to config file", default=DEFAULT_PATH_CONFIG)
+        "scandata",
+        help="path to scandata dir")
     APP_ARGUMENTS.add_argument(
-        "-w", "--workdir", required=False, help="path to workdir")
+        "-r",
+        "--recursive",
+        required=False,
+        default=False,
+        action='store_true',
+        help="iterate recursive from scandata path top-down")
     APP_ARGUMENTS.add_argument(
-        "-e", "--executors", required=False, help="Number of Executors")
+        "-c",
+        "--config",
+        required=False,
+        help="path to config file",
+        default=DEFAULT_PATH_CONFIG)
     APP_ARGUMENTS.add_argument(
-        "-m", "--models", required=False, help="Tesseract model configuration")
+        "-w",
+        "--workdir",
+        required=False,
+        help="path to workdir")
     APP_ARGUMENTS.add_argument(
-        "-x", "--extra", required=False, nargs='+', help='''\
+        "-e",
+        "--executors",
+        required=False,
+        help="Number of Executors")
+    APP_ARGUMENTS.add_argument(
+        "-m",
+        "--models",
+        required=False,
+        help="Tesseract model configuration")
+    APP_ARGUMENTS.add_argument(
+        "-x",
+        "--extra",
+        required=False,
+        nargs='+',
+        help='''\
         Pass args direct to tesseract
         Use Pairwise and repeatable
-        i.e. like "--dpi <val> --psm <val>" ''')
+        i.e. like "--dpi <val> --psm <val>"
+        ''')
     ARGS = vars(APP_ARGUMENTS.parse_args())
 
     SCANDATA_PATH = ARGS["scandata"]
@@ -338,7 +378,7 @@ if __name__ == '__main__':
     # update pipeline configuration with cli args
     pipeline.merge_args(ARGS)
     EXECUTORS = pipeline.cfg.getint('pipeline', 'executors')
-    INPUT_PATHS = pipeline.get_input_sorted()
+    INPUT_PATHS = pipeline.get_input_sorted(ARGS['recursive'])
     INPUT_NUMBERED = [(i, img)
                       for i, img in enumerate(INPUT_PATHS, start=1)]
     START_TS = time.time()

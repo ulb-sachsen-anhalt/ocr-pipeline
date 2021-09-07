@@ -544,3 +544,30 @@ def test_clear_empty_content(tmp_path):
     assert len(all_strings) == 254
     assert xml_root.find('.//alto:fileIdentifier', NAMESPACES).text == '16331011'
     assert xml_root.find('.//alto:fileName', NAMESPACES).text == '16331011.xml'
+
+def test_clear_empty_lines_with_spatiums(tmp_path):
+    """Ensure no more empty Strings exist"""
+
+    test_data = os.path.join('tests', 'resources', '16331001.xml')
+    prev_root = ET.parse(test_data).getroot()
+    prev_strings = prev_root.findall('.//alto:String', NAMESPACES)
+    # original ALTO output
+    assert len(prev_strings) == 1854
+    dst_path = tmp_path / "16331001.xml"
+    shutil.copy(test_data, dst_path)
+    step = StepPostprocessALTO()
+    step.path_in = dst_path
+
+    # act
+    step.execute()
+
+    # assert
+    xml_root = ET.parse(dst_path).getroot()
+    all_strings = xml_root.findall('.//alto:String', NAMESPACES)
+    # line with 2 empty strings and SP in between
+    line_with_sps = xml_root.findall('.//alto:TextLine[@ID="line_2"]', NAMESPACES)
+    assert not line_with_sps
+    # assert many Strings have been dropped due emptyness
+    assert len(all_strings) == 1673
+    assert xml_root.find('.//alto:fileIdentifier', NAMESPACES).text == '16331001'
+    assert xml_root.find('.//alto:fileName', NAMESPACES).text == '16331001.xml'

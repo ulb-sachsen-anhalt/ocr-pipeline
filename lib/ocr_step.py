@@ -509,6 +509,10 @@ def _sanitize_chars(lines):
 class StepPostprocessALTO(StepIO):
     """Postprocess ALTO XML"""
 
+    def __init__(self, params=None):
+        super().__init__()
+        self.params = params
+
     def execute(self):
 
         xml_root = ET.parse(self.path_in)
@@ -529,24 +533,33 @@ class StepPostprocessALTO(StepIO):
                 _file_names[0].text = file_name
 
         # remove empty sections
-        all_empty_strings = [e
-                             for e in xml_root.findall('.//alto:String', NAMESPACES)
-                             if e.attrib['CONTENT'].strip() == '']
-        for empty in all_empty_strings:
-            parent_line = empty.getparent()
-            parent_line.remove(empty)
-            if not parent_line.getchildren():
-                parent_block = parent_line.getparent()
-                parent_block.remove(parent_line)
-                if not parent_block.getchildren():
-                    parent_super = parent_block.getparent()
-                    parent_super.remove(parent_block)
-                    tag_name = parent_super.tag
-                    if not parent_super.getchildren() and tag_name.endswith('Block'):
-                        printspace = parent_super.getparent()
-                        printspace.remove(parent_super)
+        drop_empty_contents(xml_root)
 
         write_xml_file(xml_root, self.path_in)
+
+
+def drop_empty_contents(xml_root):
+    """
+    clear empty content sections
+    walk up and clear afterward empty parent structures too"""
+
+    all_empty_strings = [e
+                         for e in xml_root.findall('.//alto:String', NAMESPACES)
+                         if e.attrib['CONTENT'].strip() == '']
+    for empty in all_empty_strings:
+        parent_line = empty.getparent()
+        parent_line.remove(empty)
+        # if now no String data available (but maybe SP), drop 'em all
+        if not parent_line.findall('alto:String', NAMESPACES):
+            parent_block = parent_line.getparent()
+            parent_block.remove(parent_line)
+            if not parent_block.getchildren():
+                parent_super = parent_block.getparent()
+                parent_super.remove(parent_block)
+                tag_name = parent_super.tag
+                if not parent_super.getchildren() and tag_name.endswith('Block'):
+                    printspace = parent_super.getparent()
+                    printspace.remove(parent_super)
 
 
 def write_xml_file(xml_root, outfile):

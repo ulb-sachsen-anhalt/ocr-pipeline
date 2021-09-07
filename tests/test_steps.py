@@ -10,11 +10,14 @@ from unittest import (
     mock
 )
 
+import xml.etree.ElementTree as ET
+
 import requests
 
 import pytest
 
 from lib.ocr_step import (
+    NAMESPACES,
     StepIO,
     StepTesseract,
     StepPostMoveAlto,
@@ -24,6 +27,7 @@ from lib.ocr_step import (
     StepPostRemoveFile,
     StepException,
     StepEstimateOCR,
+    StepPostprocessALTO,
     textlines2data,
     altolines2textlines,
 )
@@ -517,3 +521,26 @@ def test_stepestimate_invalid_data(mock_request):
     # assert
     assert step.statistics
     assert not mock_request.called
+
+def test_clear_empty_content(tmp_path):
+    """Ensure no more empty Strings exist"""
+
+    test_data = os.path.join('tests', 'resources', '16331011.xml')
+    prev_root = ET.parse(test_data).getroot()
+    prev_strings = prev_root.findall('.//alto:String', NAMESPACES)
+    assert len(prev_strings) == 275
+    dst_path = tmp_path / "16331011.xml"
+    shutil.copy(test_data, dst_path)
+    step = StepPostprocessALTO()
+    step.path_in = dst_path
+
+    # act
+    step.execute()
+
+    # assert
+    xml_root = ET.parse(dst_path).getroot()
+    all_strings = xml_root.findall('.//alto:String', NAMESPACES)
+    # assert about 20 Strings have been dropped due emptyness
+    assert len(all_strings) == 254
+    assert xml_root.find('.//alto:fileIdentifier', NAMESPACES).text == '16331011'
+    assert xml_root.find('.//alto:fileName', NAMESPACES).text == '16331011.xml'

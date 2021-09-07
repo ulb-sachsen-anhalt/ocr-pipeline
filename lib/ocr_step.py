@@ -17,7 +17,7 @@ from typing import (
     Dict
 )
 
-import xml.etree.ElementTree as ET
+import lxml.etree as ET
 
 # 3rd party import
 import requests
@@ -504,3 +504,63 @@ def _sanitize_chars(lines):
         sanitized.append(text)
 
     return sanitized
+
+
+class StepPostprocessALTO(StepIO):
+    """Postprocess ALTO XML"""
+
+    def execute(self):
+
+        xml_root = ET.parse(self.path_in)
+
+        # enrich sourceImageInformation/fileIdentifier
+        file_name = os.path.basename(self.path_in)
+        source_infos = xml_root.findall(
+            './/alto:sourceImageInformation', NAMESPACES)
+        if source_infos:
+            file_id = source_infos[0].find('alto:fileIdentifier', NAMESPACES)
+            if not file_id:
+                file_id = file_name.split('.')[0]
+                ET.SubElement(
+                    source_infos[0],
+                    '{}fileIdentifier').text = file_id
+            _file_names = source_infos[0].findall('alto:fileName', NAMESPACES)
+            if _file_names:
+                _file_names[0].text = file_name
+
+        # remove empty sections
+        all_empty_strings = [e
+                             for e in xml_root.findall('.//alto:String', NAMESPACES)
+                             if e.attrib['CONTENT'].strip() == '']
+        for empty in all_empty_strings:
+            parent_line = empty.getparent()
+            parent_line.remove(empty)
+            if not parent_line.getchildren():
+                parent_block = parent_line.getparent()
+                parent_block.remove(parent_line)
+                if not parent_block.getchildren():
+                    parent_super = parent_block.getparent()
+                    parent_super.remove(parent_block)
+                    tag_name = parent_super.tag
+                    if not parent_super.getchildren() and tag_name.endswith('Block'):
+                        printspace = parent_super.getparent()
+                        printspace.remove(parent_super)
+
+        write_xml_file(xml_root, self.path_in)
+
+
+def write_xml_file(xml_root, outfile):
+    """ write xml pretty printed to outfile """
+
+    xml_string = ET.tostring(xml_root, pretty_print=True, encoding='UTF-8')
+    pretty_parser = ET.XMLParser(
+        resolve_entities=False, strip_cdata=False, remove_blank_text=True)
+    xml_root_new = ET.fromstring(xml_string, pretty_parser)
+    xml_formatted = ET.tostring(xml_root_new,
+                                pretty_print=True,
+                                encoding='UTF-8').decode('UTF-8')
+    formatted_file_content = '{}'.format(xml_formatted)
+    formatted_file_content = formatted_file_content.encode(
+        'UTF-8').replace(b'\n', b'\r\n')
+    with open(outfile, 'wb') as file_handler:
+        file_handler.write(formatted_file_content)

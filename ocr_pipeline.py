@@ -24,7 +24,8 @@ from lib.ocr_step import (
     StepTesseract,
     StepPostReplaceCharsRegex,
     StepPostMoveAlto,
-    StepEstimateOCR
+    StepEstimateOCR,
+    StepPostprocessALTO
 )
 
 

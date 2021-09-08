@@ -20,6 +20,7 @@ OCR-System of project "Digitalisierung historischer deutscher Zeitungen" (2019-2
 * run in Docker for mass digitisation purposes
 * run locally for evaluation and testing
 * no model predefined, place any required model in `model` directory
+* recursive search through subfolders for input data
 
 ## Installation
 
@@ -80,6 +81,7 @@ python ./ocr_pipeline.py <required scandata path> --workdir <optional, default i
 
 The ocr-pipeline can be configured by using different config.ini-files for different workflows. These config.ini-files contain the order and parameters of the steps that will be used in the workflow itself. Each step needs to be implemented in the steps module.
 There is also a `pipeline` section in the config files, containing information on the executors, as well as valid file extensions for input.
+The pipeline has a global configuration section, including the number of executors, file extensions for input data and workdirs.
 
 ## Development
 

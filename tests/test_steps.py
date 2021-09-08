@@ -42,8 +42,10 @@ def test_stepio_not_initable():
         StepIO()    # pylint: disable=abstract-class-instantiated
     assert "Can't instantiate" in str(exec_info.value)
 
+
 TIF_001 = '001.tif'
 TIF_002 = '002.tif'
+
 
 @pytest.fixture(name='max_dir')
 def fixture_path_existing(tmp_path):
@@ -85,6 +87,7 @@ def test_step_tesseract_path_out_folder(max_dir):
     # assert
     assert '001.xml' in step.path_next
 
+
 def test_step_tesseract_change_input(max_dir):
     """Tesseract path to write result"""
 
@@ -107,6 +110,7 @@ def test_step_tesseract_change_input(max_dir):
     assert 'MAX/001.tif ' not in step.cmd
     assert 'MAX/002.tif ' in step.cmd
     assert 'MAX/002 ' in step.cmd
+
 
 def test_step_tesseract_change_input_with_dir(max_dir):
     """Tesseract path to write result"""
@@ -522,6 +526,7 @@ def test_stepestimate_invalid_data(mock_request):
     assert step.statistics
     assert not mock_request.called
 
+
 def test_clear_empty_content(tmp_path):
     """Ensure no more empty Strings exist"""
 
@@ -542,8 +547,11 @@ def test_clear_empty_content(tmp_path):
     all_strings = xml_root.findall('.//alto:String', NAMESPACES)
     # assert about 20 Strings have been dropped due emptyness
     assert len(all_strings) == 254
-    assert xml_root.find('.//alto:fileIdentifier', NAMESPACES).text == '16331011'
+    assert xml_root.find(
+        './/alto:fileIdentifier',
+        NAMESPACES).text == '16331011'
     assert xml_root.find('.//alto:fileName', NAMESPACES).text == '16331011.xml'
+
 
 def test_clear_empty_lines_with_spatiums(tmp_path):
     """Ensure no more empty Strings exist"""
@@ -565,9 +573,12 @@ def test_clear_empty_lines_with_spatiums(tmp_path):
     xml_root = ET.parse(dst_path).getroot()
     all_strings = xml_root.findall('.//alto:String', NAMESPACES)
     # line with 2 empty strings and SP in between
-    line_with_sps = xml_root.findall('.//alto:TextLine[@ID="line_2"]', NAMESPACES)
+    line_with_sps = xml_root.findall(
+        './/alto:TextLine[@ID="line_2"]', NAMESPACES)
     assert not line_with_sps
     # assert many Strings have been dropped due emptyness
     assert len(all_strings) == 1673
-    assert xml_root.find('.//alto:fileIdentifier', NAMESPACES).text == '16331001'
+    assert xml_root.find(
+        './/alto:fileIdentifier',
+        NAMESPACES).text == '16331001'
     assert xml_root.find('.//alto:fileName', NAMESPACES).text == '16331001.xml'

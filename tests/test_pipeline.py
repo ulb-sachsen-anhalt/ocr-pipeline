@@ -114,7 +114,8 @@ def test_ocr_pipeline_config_merge_without_extra(default_pipeline):
     # arrange
     args = {"scandata": "/tmp/ocr-pipeline",
             "executors": "2",
-            "models": "ara"}
+            "models": "ara",
+            "extra": "''"}
 
     # act
     pipeline = default_pipeline
@@ -123,6 +124,12 @@ def test_ocr_pipeline_config_merge_without_extra(default_pipeline):
     # assert
     assert pipeline.cfg.getint('pipeline', 'executors') == 2
     assert pipeline.cfg['step_01']['model_configs'] == 'ara'
+
+    step1 = pipeline.get_steps()[0]
+    step1.path_in = os.path.join(default_pipeline.scandata_path, RES_0001_TIF)
+
+    assert "''" not in step1.cmd
+    assert step1.cmd.endswith('0001 -l ara alto')
 
 
 def test_ocr_pipeline_mark_done(default_pipeline):
@@ -135,7 +142,7 @@ def test_ocr_pipeline_mark_done(default_pipeline):
     default_scanpath = default_pipeline.scandata_path
     new_mark_path = os.path.join(default_scanpath, 'ocr_done')
     assert os.path.exists(new_mark_path)
-    with open(new_mark_path, 'r') as f_han:
+    with open(new_mark_path, 'r', encoding="UTF-8") as f_han:
         entries = f_han.readlines()
         last_entry = entries[-1]
         assert last_entry.endswith('switch to state ocr_done')

@@ -79,7 +79,10 @@ class OCRPipeline():
             if 'models' in arguments and arguments['models']:
                 sect_tess['model_configs'] = arguments['models']
             if 'extra' in arguments and arguments['extra']:
-                sect_tess['extra'] = ''.join(arguments['extra'])
+                # ensure that empty single quotes aren't propagated further
+                xtra_args = [e for e in arguments['extra'] if e.strip("'")]
+                if xtra_args:
+                    sect_tess['extra'] = ''.join(arguments['extra'])
             if 'tesseract_bin' in arguments and arguments['tesseract_bin']:
                 sect_tess['tesseract_bin'] = arguments['tesseract_bin']
 

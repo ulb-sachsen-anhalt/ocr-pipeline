@@ -158,7 +158,7 @@ class OCRPipeline():
                 self.log(
                     'error', f"Miss preceeding marker, unable to set mark '{mark}'")
             old_marker = os.path.join(self.scandata_path, old_label)
-            with open(old_marker, 'a+') as m_file:
+            with open(old_marker, 'a+', encoding="UTF-8") as m_file:
                 m_file.write(f"\n{right_now} [INFO ] switch to state {mark}")
             os.rename(old_marker, os.path.join(self.scandata_path, mark))
 
@@ -227,7 +227,7 @@ class OCRPipeline():
             n_i = len(invalids)
             self.log(
                 'info', f"WTR (Mean) : '{mean}' (1: {b_1}/{n_v}, ... 5: {b_5}/{n_v})")
-            with open(file_path, 'w') as outfile:
+            with open(file_path, 'w', encoding="UTF-8") as outfile:
                 outfile.write(
                     f"{mean},{b_1},{b_2},{b_3},{b_4},{b_5},{len(estms)},{n_i}\n")
                 for s in sorteds:

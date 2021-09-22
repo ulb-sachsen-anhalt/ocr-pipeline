@@ -280,7 +280,7 @@ def test_replaced_file_written(tmp_500_gray):
     step.execute()
 
     # assert
-    check_handle = open(tmp_500_gray, 'r')
+    check_handle = open(tmp_500_gray, 'r', encoding="UTF-8")
     lines = check_handle.readlines()
     for line in lines:
         for (k, _) in params['dict_chars'].items():
@@ -475,7 +475,7 @@ def _fixture_languagetool(*args):
     result.status_code = 200
     response_path = os.path.join(PROJECT_ROOT_DIR, 'tests', 'resources',
                                  'languagetool_response_500_gray00003.json')
-    with open(response_path) as the_json_file:
+    with open(response_path, encoding="UTF-8") as the_json_file:
         result.json.return_value = json.load(the_json_file)
     return result
 

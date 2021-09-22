@@ -37,7 +37,7 @@ def fixure_a_workspace(tmp_path):
     path_scan_0002 = data_dir / RES_0002_PNG
     path_scan_0003 = data_dir / RES_0003_JPG
     path_mark_prev = data_dir / "ocr_busy"
-    with open(path_mark_prev, 'w') as marker_file:
+    with open(path_mark_prev, 'w', encoding="UTF-8") as marker_file:
         marker_file.write("previous state\n")
 
     shutil.copyfile(RES_00041_XML, path_scan_0001)

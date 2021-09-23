@@ -36,9 +36,9 @@ def fixure_a_workspace(tmp_path):
     path_scan_0001 = data_dir / RES_0001_TIF
     path_scan_0002 = data_dir / RES_0002_PNG
     path_scan_0003 = data_dir / RES_0003_JPG
-    path_mark_prev = data_dir / "ocr_busy"
+    path_mark_prev = data_dir / "ocr_pipeline_open"
     with open(path_mark_prev, 'w', encoding="UTF-8") as marker_file:
-        marker_file.write("previous state\n")
+        marker_file.write("some previous state\n")
 
     shutil.copyfile(RES_00041_XML, path_scan_0001)
     shutil.copyfile(RES_00041_XML, path_scan_0002)
@@ -53,7 +53,6 @@ def fixture_default_pipeline(a_workspace):
     data_dir = a_workspace / "scandata"
     log_dir = a_workspace / "log"
     return OCRPipeline(str(data_dir), log_dir=str(log_dir))
-
 
 def test_ocr_pipeline_default_config(default_pipeline):
     """check default config options"""
@@ -135,24 +134,27 @@ def test_ocr_pipeline_config_merge_without_extra(default_pipeline):
 def test_ocr_pipeline_mark_done(default_pipeline):
     """check marker file changed"""
 
-    # act
+    # act like something has happened
+    default_pipeline.input_sorted()
+    default_pipeline.lock_paths()
+    # ... ocr-ing
     default_pipeline.mark_done()
 
     # assert
     default_scanpath = default_pipeline.scandata_path
-    new_mark_path = os.path.join(default_scanpath, 'ocr_done')
+    new_mark_path = os.path.join(default_scanpath, 'ocr_pipeline_done')
     assert os.path.exists(new_mark_path)
     with open(new_mark_path, 'r', encoding="UTF-8") as f_han:
         entries = f_han.readlines()
         last_entry = entries[-1]
-        assert last_entry.endswith('switch to state ocr_done')
+        assert last_entry.endswith('set state ocr_pipeline_done')
 
 
 def test_ocr_pipeline_get_images(default_pipeline):
     """check images are sorted"""
 
     # act
-    images = default_pipeline.get_input_sorted()
+    images = default_pipeline.input_sorted()
     default_scanpath = default_pipeline.scandata_path
 
     # assert
@@ -256,10 +258,6 @@ def _recursive_workspace(tmp_path):
 
     path_scan_0001 = scan_dir01 / RES_0001_TIF
     path_scan_0002 = scan_dir02 / RES_0003_JPG
-    path_mark_prev = img_root / "ocr_busy"
-    with open(path_mark_prev, 'w') as marker_file:
-        marker_file.write("previous state\n")
-
     shutil.copyfile(RES_00041_XML, path_scan_0001)
     shutil.copyfile(RES_00041_XML, path_scan_0002)
 
@@ -275,12 +273,13 @@ def test_pipeline_gather_images_recursevly(recursive_workspace):
     pipeline = OCRPipeline(str(recursive_workspace), log_dir=str(log_dir))
 
     # act
-    input_paths = pipeline.get_input_sorted(recursive=True)
+    input_paths = pipeline.input_sorted(recursive=True)
 
     # assert
     assert len(input_paths) == 2
     assert "scans/scandata1/0001.tif" in input_paths[0]
     assert "scans/scandata2/0003.jpg" in input_paths[1]
+
 
 
 def test_pipeline_step_replace(custom_config_pipeline):
@@ -305,3 +304,37 @@ def test_pipeline_step_replace_regex(custom_config_pipeline):
     assert len(steps) == 5
     assert isinstance(steps[2], StepPostReplaceCharsRegex)
     assert steps[2].pattern == 'r\'([aeioubcglnt]3[:-]*")\''
+
+
+def test_pipeline_gather_images_recursive_with_locks(recursive_workspace):
+    """
+    OCR-Input is collected from several sub dirs
+    and path-locking works as expected
+    """
+
+    # arrange
+    scan_dir03 = recursive_workspace / "scans" / "scandata3"
+    scan_dir03.mkdir()
+    path_a_scan = scan_dir03 / RES_0003_JPG
+    path_dir01_busy = recursive_workspace /  "scans" / "scandata1" / "ocr_pipeline_busy"
+    with open(path_dir01_busy, 'w', encoding="UTF-8") as marker_file:
+        marker_file.write("previous state\n")
+    shutil.copyfile(RES_00041_XML, path_a_scan)
+
+    log_dir = recursive_workspace / "log"
+    pipeline = OCRPipeline(str(recursive_workspace), log_dir=str(log_dir))
+
+    # act
+    input_paths = pipeline.input_sorted(recursive=True)
+    pipeline.lock_paths()
+
+    # assert
+    assert len(input_paths) == 2
+    assert "scans/scandata2/0003.jpg" in input_paths[0]
+    assert "scans/scandata3/0003.jpg" in input_paths[1]
+    # check the two dirs have been locked as expected
+    assert os.path.exists(str(recursive_workspace / "scans" / "scandata2" / "ocr_pipeline_busy"))
+    assert os.path.exists(str(recursive_workspace / "scans" / "scandata3" / "ocr_pipeline_busy"))
+
+    # re-check: now these paths won't be taken into account anymore
+    assert not pipeline.input_sorted(recursive=True)

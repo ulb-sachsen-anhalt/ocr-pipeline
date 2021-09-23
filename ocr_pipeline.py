@@ -46,6 +46,7 @@ class OCRPipeline():
         if _path.endswith('/'):
             _path = _path[0:-1]
         self.scandata_path = _path
+        self.pipeline_file_paths = []
         if conf_file is None:
             project_dir = os.path.dirname(__file__)
             conf_file = os.path.join(project_dir, DEFAULT_PATH_CONFIG)
@@ -150,27 +151,30 @@ class OCRPipeline():
         func = getattr(self.the_logger, lvl, 'info')
         func(message)
 
-    def _write_mark(self, mark):
-        if self.scandata_path:
-            right_now = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
-            old_label = self.cfg.get('pipeline', 'mark_prev')
-            if not old_label:
-                self.log(
-                    'error', f"Miss preceeding marker, unable to set mark '{mark}'")
-            old_marker = os.path.join(self.scandata_path, old_label)
-            with open(old_marker, 'a+', encoding="UTF-8") as m_file:
-                m_file.write(f"\n{right_now} [INFO ] switch to state {mark}")
-            os.rename(old_marker, os.path.join(self.scandata_path, mark))
+    def _set_mark(self, mark, path_dir=None, preceeding=None):
+        # set default mark dir to data_root
+        if not path_dir:
+            path_dir = self.scandata_path
+        right_now = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+
+        if not preceeding:
+            preceeding = self.cfg.get('pipeline', 'mark_lock')
+        old_marker = os.path.join(path_dir, preceeding)
+        with open(old_marker, 'a+', encoding="UTF-8") as m_file:
+            m_file.write(f"\n{right_now} [INFO ] set state {mark}")
+        os.rename(old_marker, os.path.join(path_dir, mark))
 
     def mark_fail(self):
         """mark state pipeline failed"""
 
-        self._write_mark('ocr_fail')
+        file_fail = self.cfg.get('pipeline', 'mark_fail')
+        self._set_mark(file_fail)
 
     def mark_done(self):
         """Mark state pipeline succeded"""
 
-        self._write_mark('ocr_done')
+        file_done = self.cfg.get('pipeline', 'mark_done')
+        self._set_mark(file_done)
 
     def prepare_workdir(self, workdir=None):
         """prepare workdir: create or clear if necessary"""
@@ -236,31 +240,69 @@ class OCRPipeline():
                 outfile.write("\n")
                 return file_path
 
-    def get_input_sorted(self, recursive=False):
-        """get input data as sorted list, opt recursive"""
+    def input_sorted(self, recursive=False):
+        """
+        Input data as sorted list
+        re-sets *any* preceeding input-list - outcome may alter between calls
+        * opt recursive
+        """
 
         exts = [self.cfg.get('pipeline', 'file_ext')]
         if "," in exts[0]:
             exts = exts[0].split(",")
 
-        def _f(path):
+        def _file_ext_matches(path):
             for file_ext in exts:
                 if str(path).endswith(file_ext):
                     return True
             return False
 
+        def _dir_not_locked(path):
+            lock_marker = self.cfg.get('pipeline', 'mark_lock')
+            return lock_marker not in [f.name
+                                       for f in os.scandir(path)]
+
         paths = []
         if not recursive:
             paths = [str(p)
                      for p in pathlib.Path(self.scandata_path).iterdir()
-                     if _f(p)]
+                     if _file_ext_matches(p)]
         else:
             paths = [os.path.join(curr,f)
                      for curr, _, files in os.walk(self.scandata_path)
                      for f in files
-                     if _f(f)]
-        return sorted(paths)
+                     if _file_ext_matches(f) and _dir_not_locked(curr)]
+        self.pipeline_file_paths = sorted(paths)
+        return self.pipeline_file_paths
 
+    def lock_paths(self):
+        """Lock *all* current directories for other ocr-workers"""
+
+        open_marker = self.cfg.get('pipeline', 'mark_open')
+        lock_marker = self.cfg.get('pipeline', 'mark_lock')
+        for file_path in self.pipeline_file_paths:
+            dir_name = os.path.dirname(file_path)
+            file_names = [f.name for f in os.scandir(dir_name)]
+            if lock_marker not in file_names:
+                self.the_logger.debug("lock path '%s' for processing", 
+                    dir_name)
+                if open_marker in file_names:
+                    self._set_mark(lock_marker, dir_name, open_marker)
+                else:
+                    self._set_mark(lock_marker, dir_name)
+
+    def unlock_paths(self):
+        """Un-Lock all before sealed directories"""
+
+        lock_marker = self.cfg.get('pipeline', 'mark_lock')
+        done_marker = self.cfg.get('pipeline', 'mark_done')
+        for file_path in self.pipeline_file_paths:
+            dir_name = os.path.dirname(file_path)
+            for dir_entry in os.scandir(dir_name):
+                if lock_marker in dir_entry.name:
+                    self.the_logger.debug("un-lock path '%s'", 
+                        dir_name)
+                    self._set_mark(done_marker, dir_name, lock_marker)
 
 def profile(func):
     """profile execution time of provided function"""
@@ -382,13 +424,19 @@ if __name__ == '__main__':
     # update pipeline configuration with cli args
     pipeline.merge_args(ARGS)
     EXECUTORS = pipeline.cfg.getint('pipeline', 'executors')
-    INPUT_PATHS = pipeline.get_input_sorted(ARGS['recursive'])
+    INPUT_PATHS = pipeline.input_sorted(ARGS['recursive'])
+    pipeline.log('info', f"picked '{len(INPUT_PATHS)}' input entries to process")
     INPUT_NUMBERED = [(i, img)
                       for i, img in enumerate(INPUT_PATHS, start=1)]
+    
+    # set start time
     START_TS = time.time()
 
-    # perform sequential part of pipeline with parallel processing
     try:
+        # lock directories for concurrent ocr-workers
+        pipeline.lock_paths()
+
+        # perform sequential part of pipeline with parallel processing
         with concurrent.futures.ProcessPoolExecutor(max_workers=EXECUTORS) as executor:
             RESULTS = list(executor.map(_execute_pipeline, INPUT_NUMBERED))
             pipeline.log('debug', f"having '{len(RESULTS)}' workflow results")
@@ -399,8 +447,11 @@ if __name__ == '__main__':
                 pipeline.log(
                     'info', "no ocr estimation data available, no wtr-data written")
 
+        # un-lock directories with recursive processing
+        pipeline.unlock_paths()
     except OSError as exc:
         pipeline.log('error', str(exc))
+        pipeline.mark_fail()
         raise OSError from exc
 
     DELTA_TS = (time.time()) - START_TS

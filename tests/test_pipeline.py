@@ -306,7 +306,7 @@ def test_pipeline_step_replace_regex(custom_config_pipeline):
     assert steps[2].pattern == 'r\'([aeioubcglnt]3[:-]*")\''
 
 
-def test_pipeline_gather_images_recursive_with_locks(recursive_workspace):
+def test_pipeline_gather_images_recursive_with_marks(recursive_workspace):
     """
     OCR-Input is collected from several sub dirs
     and path-locking works as expected
@@ -316,7 +316,7 @@ def test_pipeline_gather_images_recursive_with_locks(recursive_workspace):
     scan_dir03 = recursive_workspace / "scans" / "scandata3"
     scan_dir03.mkdir()
     path_a_scan = scan_dir03 / RES_0003_JPG
-    path_dir01_busy = recursive_workspace /  "scans" / "scandata1" / "ocr_pipeline_busy"
+    path_dir01_busy = recursive_workspace /  "scans" / "scandata1" / "ocr_pipeline_open"
     with open(path_dir01_busy, 'w', encoding="UTF-8") as marker_file:
         marker_file.write("previous state\n")
     shutil.copyfile(RES_00041_XML, path_a_scan)
@@ -329,12 +329,10 @@ def test_pipeline_gather_images_recursive_with_locks(recursive_workspace):
     pipeline.lock_paths()
 
     # assert
-    assert len(input_paths) == 2
-    assert "scans/scandata2/0003.jpg" in input_paths[0]
-    assert "scans/scandata3/0003.jpg" in input_paths[1]
+    assert len(input_paths) == 1
+    assert "scans/scandata1/0001.tif" in input_paths[0]
     # check the two dirs have been locked as expected
-    assert os.path.exists(str(recursive_workspace / "scans" / "scandata2" / "ocr_pipeline_busy"))
-    assert os.path.exists(str(recursive_workspace / "scans" / "scandata3" / "ocr_pipeline_busy"))
+    assert os.path.exists(str(recursive_workspace / "scans" / "scandata1" / "ocr_pipeline_busy"))
 
     # re-check: now these paths won't be taken into account anymore
     assert not pipeline.input_sorted(recursive=True)

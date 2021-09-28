@@ -257,10 +257,8 @@ class OCRPipeline():
                     return True
             return False
 
-        def _dir_not_locked(path):
-            lock_marker = self.cfg.get('pipeline', 'mark_lock')
-            return lock_marker not in [f.name
-                                       for f in os.scandir(path)]
+        def _marked(path, mark):
+            return mark in [f.name for f in os.scandir(path)]
 
         paths = []
         if not recursive:
@@ -268,10 +266,14 @@ class OCRPipeline():
                      for p in pathlib.Path(self.scandata_path).iterdir()
                      if _file_ext_matches(p)]
         else:
+            mark_open = self.cfg.get('pipeline', 'mark_open')
+            self.the_logger.info("recursive sub-directories having '%s'",
+                mark_open)
             paths = [os.path.join(curr,f)
                      for curr, _, files in os.walk(self.scandata_path)
                      for f in files
-                     if _file_ext_matches(f) and _dir_not_locked(curr)]
+                     if _file_ext_matches(f)
+                        and _marked(curr, mark_open)]
         self.pipeline_file_paths = sorted(paths)
         return self.pipeline_file_paths
 

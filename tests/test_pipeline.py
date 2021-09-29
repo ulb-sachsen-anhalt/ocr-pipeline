@@ -253,8 +253,6 @@ def _recursive_workspace(tmp_path):
     scan_dir01.mkdir()
     scan_dir02 = img_root / "scandata2"
     scan_dir02.mkdir()
-    marker_file = scan_dir02 / "ocr_pipeline_open"
-    marker_file.write_text("opened")
     log_dir = tmp_path / "log"
     log_dir.mkdir()
 
@@ -268,9 +266,11 @@ def _recursive_workspace(tmp_path):
 
 
 def test_pipeline_gather_images_recursevly(recursive_workspace):
-    """Behavior if OCR-Input is collected in sub dirs"""
+    """Behavior OCR-Input collected in sub dirs with one open"""
 
     # arrange
+    marker_file = recursive_workspace / "scans" / "scandata2" / "ocr_pipeline_open"
+    marker_file.write_text("opened")
     log_dir = recursive_workspace / "log"
     pipeline = OCRPipeline(str(recursive_workspace), log_dir=str(log_dir))
 

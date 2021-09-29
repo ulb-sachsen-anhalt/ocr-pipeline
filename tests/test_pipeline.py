@@ -253,6 +253,8 @@ def _recursive_workspace(tmp_path):
     scan_dir01.mkdir()
     scan_dir02 = img_root / "scandata2"
     scan_dir02.mkdir()
+    marker_file = scan_dir02 / "ocr_pipeline_open"
+    marker_file.write_text("opened")
     log_dir = tmp_path / "log"
     log_dir.mkdir()
 
@@ -276,9 +278,8 @@ def test_pipeline_gather_images_recursevly(recursive_workspace):
     input_paths = pipeline.input_sorted(recursive=True)
 
     # assert
-    assert len(input_paths) == 2
-    assert "scans/scandata1/0001.tif" in input_paths[0]
-    assert "scans/scandata2/0003.jpg" in input_paths[1]
+    assert len(input_paths) == 1
+    assert "scans/scandata2/0003.jpg" in input_paths[0]
 
 
 

@@ -206,7 +206,7 @@ class StepPostReplaceChars(StepIO):
     def __init__(self, params: Dict):
         super().__init__()
         dict_chars = params.get('dict_chars', '{}')
-        self._dict_chars = parse_dict(dict_chars)
+        self.dict_chars = parse_dict(dict_chars)
         self.lines_new = []
         self._replacements = {}
         self._must_backup = params.get('must_backup', False)
@@ -237,7 +237,7 @@ class StepPostReplaceChars(StepIO):
 
     def _replace(self, lines):
         for line in lines:
-            for (k, val) in self._dict_chars.items():
+            for (k, val) in self.dict_chars.items():
                 if k in line:
                     line = line.replace(k, val)
                     self._update_replacements(k)

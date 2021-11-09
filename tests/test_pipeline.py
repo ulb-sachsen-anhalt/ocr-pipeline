@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Tests OCR Pipeline API"""
 
+import logging
 import os
 import pathlib
 import shutil
@@ -49,7 +50,7 @@ def fixure_a_workspace(tmp_path):
 
 
 @pytest.fixture(name="default_pipeline")
-def fixture_default_pipeline(a_workspace):
+def _fixture_default_pipeline(a_workspace):
     data_dir = a_workspace / "scandata"
     log_dir = a_workspace / "log"
     return OCRPipeline(str(data_dir), log_dir=str(log_dir))
@@ -63,11 +64,11 @@ def test_ocr_pipeline_default_config(default_pipeline):
 
     # assert
     assert pipeline
-    assert pipeline.get('pipeline', 'executors') == '8'
-    assert pipeline.get('pipeline', 'logger_name') == 'ocr_pipeline'
-    assert pipeline.get('pipeline', 'file_ext') == 'tif,jpg,png,jpeg'
-    assert pipeline.get('step_03', 'language') == 'de-DE'
-    assert pipeline.get('step_03', 'enabled_rules') == 'GERMAN_SPELLER_RULE'
+    assert pipeline.cfg.get('pipeline', 'executors') == '8'
+    assert pipeline.cfg.get('pipeline', 'logger_name') == 'ocr_pipeline'
+    assert pipeline.cfg.get('pipeline', 'file_ext') == 'tif,jpg,png,jpeg'
+    assert pipeline.cfg.get('step_03', 'language') == 'de-DE'
+    assert pipeline.cfg.get('step_03', 'enabled_rules') == 'GERMAN_SPELLER_RULE'
 
 
 def test_ocr_pipeline_default_logging(default_pipeline, caplog):
@@ -77,7 +78,8 @@ def test_ocr_pipeline_default_logging(default_pipeline, caplog):
     log_msg = 'this is a test log info message'
 
     # act
-    default_pipeline.log('info', log_msg)
+    caplog.set_level(logging.INFO, logger="ocr_pipeline")
+    default_pipeline.logger.info(log_msg)
 
     # assert log data
     assert log_msg in caplog.messages
@@ -126,7 +128,7 @@ def test_ocr_pipeline_config_merge_without_extra(default_pipeline):
     assert pipeline.cfg['step_01']['model_configs'] == 'ara'
 
     step1 = pipeline.get_steps()[0]
-    step1.path_in = os.path.join(default_pipeline.scandata, RES_0001_TIF)
+    step1.path_in = os.path.join(default_pipeline.data_path, RES_0001_TIF)
 
     assert "''" not in step1.cmd
     assert step1.cmd.endswith('0001 -l ara alto')
@@ -142,13 +144,13 @@ def test_ocr_pipeline_mark_done(default_pipeline):
     default_pipeline.mark_done()
 
     # assert
-    default_scanpath = default_pipeline.scandata
+    default_scanpath = default_pipeline.data_path
     new_mark_path = os.path.join(default_scanpath, 'ocr_pipeline_done')
     assert os.path.exists(new_mark_path)
     with open(new_mark_path, 'r', encoding="UTF-8") as f_han:
         entries = f_han.readlines()
         last_entry = entries[-1]
-        assert last_entry.endswith('set state ocr_pipeline_done')
+        assert last_entry.endswith('mark state ocr_pipeline_done')
 
 
 def test_ocr_pipeline_get_images(default_pipeline):
@@ -156,7 +158,7 @@ def test_ocr_pipeline_get_images(default_pipeline):
 
     # act
     images = default_pipeline.input_sorted()
-    default_scanpath = default_pipeline.scandata
+    default_scanpath = default_pipeline.data_path
 
     # assert
     assert images
@@ -293,7 +295,7 @@ def test_pipeline_step_replace(custom_config_pipeline):
     # assert
     assert len(steps) == 5
     assert isinstance(steps[1], StepPostReplaceChars)
-    assert isinstance(steps[1]._dict_chars, dict)
+    assert isinstance(steps[1].dict_chars, dict)
 
 
 def test_pipeline_step_replace_regex(custom_config_pipeline):

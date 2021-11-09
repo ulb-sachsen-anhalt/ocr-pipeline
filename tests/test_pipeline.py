@@ -54,6 +54,7 @@ def fixture_default_pipeline(a_workspace):
     log_dir = a_workspace / "log"
     return OCRPipeline(str(data_dir), log_dir=str(log_dir))
 
+
 def test_ocr_pipeline_default_config(default_pipeline):
     """check default config options"""
 
@@ -125,7 +126,7 @@ def test_ocr_pipeline_config_merge_without_extra(default_pipeline):
     assert pipeline.cfg['step_01']['model_configs'] == 'ara'
 
     step1 = pipeline.get_steps()[0]
-    step1.path_in = os.path.join(default_pipeline.scandata_path, RES_0001_TIF)
+    step1.path_in = os.path.join(default_pipeline.scandata, RES_0001_TIF)
 
     assert "''" not in step1.cmd
     assert step1.cmd.endswith('0001 -l ara alto')
@@ -141,7 +142,7 @@ def test_ocr_pipeline_mark_done(default_pipeline):
     default_pipeline.mark_done()
 
     # assert
-    default_scanpath = default_pipeline.scandata_path
+    default_scanpath = default_pipeline.scandata
     new_mark_path = os.path.join(default_scanpath, 'ocr_pipeline_done')
     assert os.path.exists(new_mark_path)
     with open(new_mark_path, 'r', encoding="UTF-8") as f_han:
@@ -155,7 +156,7 @@ def test_ocr_pipeline_get_images(default_pipeline):
 
     # act
     images = default_pipeline.input_sorted()
-    default_scanpath = default_pipeline.scandata_path
+    default_scanpath = default_pipeline.scandata
 
     # assert
     assert images
@@ -187,7 +188,7 @@ def test_ocr_pipeline_profile():
 
         # pylint: disable=missing-function-docstring,no-self-use
         def func(self):
-            return [i*i for i in range(1, 2000000)]
+            return [i * i for i in range(1, 2000000)]
 
     # act
     inner = InnerClass()
@@ -219,7 +220,8 @@ def _fixture_custom_config_pipeline(a_workspace):
     conf_file = pathlib.Path(__file__).parent / \
         'resources' / 'ocr_config_full.ini'
     assert os.path.isfile(conf_file)
-    return OCRPipeline(str(data_dir), log_dir=str(log_dir), conf_file=str(conf_file))
+    return OCRPipeline(str(data_dir), log_dir=str(
+        log_dir), conf_file=str(conf_file))
 
 
 def test_pipeline_step_tesseract(custom_config_pipeline, a_workspace):
@@ -282,7 +284,6 @@ def test_pipeline_gather_images_recursevly(recursive_workspace):
     assert "scans/scandata2/0003.jpg" in input_paths[0]
 
 
-
 def test_pipeline_step_replace(custom_config_pipeline):
     """Check proper steps from full configuration"""
 
@@ -317,7 +318,8 @@ def test_pipeline_gather_images_recursive_with_marks(recursive_workspace):
     scan_dir03 = recursive_workspace / "scans" / "scandata3"
     scan_dir03.mkdir()
     path_a_scan = scan_dir03 / RES_0003_JPG
-    path_dir01_busy = recursive_workspace /  "scans" / "scandata1" / "ocr_pipeline_open"
+    path_dir01_busy = recursive_workspace / \
+        "scans" / "scandata1" / "ocr_pipeline_open"
     with open(path_dir01_busy, 'w', encoding="UTF-8") as marker_file:
         marker_file.write("previous state\n")
     shutil.copyfile(RES_00041_XML, path_a_scan)
@@ -333,7 +335,39 @@ def test_pipeline_gather_images_recursive_with_marks(recursive_workspace):
     assert len(input_paths) == 1
     assert "scans/scandata1/0001.tif" in input_paths[0]
     # check the two dirs have been locked as expected
-    assert os.path.exists(str(recursive_workspace / "scans" / "scandata1" / "ocr_pipeline_busy"))
+    assert os.path.exists(
+        str(recursive_workspace / "scans" / "scandata1" / "ocr_pipeline_busy"))
 
     # re-check: now these paths won't be taken into account anymore
     assert not pipeline.input_sorted(recursive=True)
+
+
+def test_pipeline_gather_images_from_dirs_with_marks(recursive_workspace):
+    """
+    OCR-Input is filtered from 2 different scandata_dirs
+    and path-locking works as expected
+    """
+
+    # arrange
+    path_dir01_open = recursive_workspace / \
+        "scans" / "scandata1" / "ocr_pipeline_open"
+    path_dir02 = recursive_workspace / "scans" / "scandata2"
+    with open(path_dir01_open, 'w', encoding="UTF-8") as marker_file:
+        marker_file.write("previous state\n")
+    log_dir = recursive_workspace / "log"
+    dirs = os.path.dirname(path_dir01_open) + ',' + str(path_dir02)
+    pipeline = OCRPipeline(dirs, log_dir=str(log_dir))
+
+    # act
+    input_paths = pipeline.input_sorted()
+    pipeline.lock_paths()
+
+    # assert
+    assert len(input_paths) == 1
+    assert "scans/scandata1/0001.tif" in input_paths[0]
+    # check the two dirs have been locked as expected
+    assert os.path.exists(
+        str(recursive_workspace / "scans" / "scandata1" / "ocr_pipeline_busy"))
+
+    # re-check: now these paths won't be taken into account anymore
+    assert not pipeline.input_sorted()

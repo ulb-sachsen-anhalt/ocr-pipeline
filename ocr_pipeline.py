@@ -462,7 +462,7 @@ if __name__ == '__main__':
     INPUT_PATHS = pipeline.input_sorted(ARGS['recursive'])
     pipeline.log(
         'info',
-        f"picked '{len(INPUT_PATHS)}' input entries to process")
+        f"'{len(INPUT_PATHS)}' inputs for pipeline")
     INPUT_NUMBERED = [(i, img)
                       for i, img in enumerate(INPUT_PATHS, start=1)]
 

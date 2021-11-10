@@ -195,7 +195,7 @@ def test_ocr_pipeline_profile():
     # act
     inner = InnerClass()
     result = profile(inner.func)
-    assert "'test_ocr_pipeline_profile' passed in" in result
+    assert "test_ocr_pipeline_profile run" in result
 
 
 def test_ocr_pipeline_estimations(default_pipeline):

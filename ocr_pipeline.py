@@ -272,7 +272,7 @@ class OCRPipeline():
         """Calculate data paths
 
         Args:
-            recursive (bool, optional): 
+            recursive (bool, optional):
                 Whether to collect paths recursive
                 from given data_path, worse for complex file trees.
                 Defaults to False.
@@ -280,7 +280,6 @@ class OCRPipeline():
         Returns:
             list(str): List of data paths
         """
-
 
         exts = [self.cfg.get('pipeline', 'file_ext', fallback='jpg')]
         if "," in exts[0]:
@@ -312,7 +311,7 @@ class OCRPipeline():
         mark_open = self.cfg.get('pipeline', 'mark_open', fallback=None)
         if recursive and isinstance(self.data_path, str):
             self.logger.debug("recursive sub-directories having '%s'",
-                             mark_open)
+                              mark_open)
             paths = [os.path.join(curr, f)
                      for curr, _, files in os.walk(self.data_path)
                      for f in files
@@ -374,21 +373,21 @@ def profile(func):
     func_end = time.time()
     func_delta = func_end - func_start
     label = str(func).split()[4].split('.')[2]
-    return f"'{label}' passed in {func_delta:.2f}s"
+    return f"{label} run {func_delta:.2f}s"
 
 
 def _execute_pipeline(*args):
     number = args[0][0]
     start_path = args[0][1]
-    file_nr = f"{number:04d}/{len(INPUT_PATHS):04d}"
+    batch_label = f"{number:04d}/{len(INPUT_PATHS):04d}"
     next_in = start_path
     file_name = os.path.basename(start_path)
     outcome = (file_name, MARK_MISSING_ESTM)
 
     try:
         the_steps = pipeline.get_steps()
-        pipeline.logger.info("[%s] [%d] start pipeline with %d steps",
-                             file_name, file_nr, len(the_steps))
+        pipeline.logger.info("[%s] [%s] start pipeline with %d steps",
+                             file_name, batch_label, len(the_steps))
 
         # for step in STEPS:
         for step in the_steps:
@@ -397,16 +396,17 @@ def _execute_pipeline(*args):
                 pipeline.logger.debug("[%s] %s", file_name, step.cmd)
 
             # the actual execution
-            result = profile(step.execute)
+            profile_result = profile(step.execute)
 
             # log current step
             if hasattr(step, 'statistics') and len(step.statistics) > 0:
-                statistics = step.statistics
-                pipeline.logger.info(
-                    "[%s] statistics: %s", file_name, str(statistics))
-                if result and isinstance(step, StepEstimateOCR):
-                    outcome = (file_name,) + statistics
-            pipeline.logger.debug("[%s] result %s", file_name, result)
+                if profile_result and isinstance(step, StepEstimateOCR):
+                    outcome = (file_name,) + step.statistics
+                pipeline.logger.info("[%s] %s, statistics: %s",
+                                      file_name, profile_result,
+                                      str(step.statistics))
+            else:
+                pipeline.logger.debug("[%s] %s", file_name, profile_result)
 
             # prepare next step
             if hasattr(step, 'path_next') and step.path_next is not None:
@@ -415,14 +415,22 @@ def _execute_pipeline(*args):
                 next_in = step.path_next
 
         pipeline.logger.info("[%s] [%s] done pipeline with %d steps",
-                             file_name, file_nr, len(the_steps))
+                             file_name, batch_label, len(the_steps))
         return outcome
 
-    except StepException as exc:
-        pipeline.logger.error("[%s] %s: %s", start_path, step.label, str(exc))
+    except StepException as step_exc:
+        pipeline.logger.error(
+            "[%s] %s: %s",
+            start_path,
+            step.label,
+            str(step_exc))
         sys.exit(1)
-    except OSError as exc:
-        pipeline.logger.error("[%s] %s: %s", start_path, step.label, str(exc))
+    except OSError as os_exc:
+        pipeline.logger.error(
+            "[%s] %s: %s",
+            start_path,
+            step.label,
+            str(os_exc))
         sys.exit(1)
 
 

@@ -422,14 +422,14 @@ def _execute_pipeline(*args):
         pipeline.logger.error(
             "[%s] %s: %s",
             start_path,
-            step.label,
+            step,
             str(step_exc))
         sys.exit(1)
     except OSError as os_exc:
         pipeline.logger.error(
             "[%s] %s: %s",
             start_path,
-            step.label,
+            step,
             str(os_exc))
         sys.exit(1)
 

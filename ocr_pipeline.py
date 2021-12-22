@@ -12,6 +12,7 @@ import pathlib
 import sys
 import tempfile
 import time
+import traceback
 
 # pylint: disable=unused-import
 # import statement *is_REALLY* necessary
@@ -418,12 +419,12 @@ def _execute_pipeline(*args):
                              file_name, batch_label, len(the_steps))
         return outcome
 
-    except StepException as step_exc:
+    except StepException:
         pipeline.logger.error(
             "[%s] %s: %s",
             start_path,
             step,
-            str(step_exc))
+            traceback.format_exc())
         sys.exit(1)
     except OSError as os_exc:
         pipeline.logger.error(

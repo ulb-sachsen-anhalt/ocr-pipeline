@@ -2,7 +2,13 @@
 
 import abc
 import sys
-from functools import reduce
+from functools import (
+    reduce
+)
+from typing import (
+    List,
+    Tuple
+)
 
 import numpy as np
 
@@ -39,17 +45,16 @@ class TextLine(abc.ABC):
 
     @abc.abstractmethod
     def set_id(self):
-        """Determine identifier"""
+        """Determine identifier
+        """
 
     @abc.abstractmethod
     def set_text(self):
-        """Determine list of word tokens"""
+        """Determine list of word tokens
+        """
 
     def get_shape(self, _):
-        """
-        Return TextLine shape
-        Optional(PAGE): Box filled with median color value
-        or the_gray tone to fit rectangular shape
+        """Return TextLine shape
         """
 
     def get_textline_content(self) -> str:
@@ -71,7 +76,7 @@ class TextLine(abc.ABC):
 class ALTOLine(TextLine):
     """Extract TextLine Information from ALTO Data"""
 
-    def __init__(self, element, namespace):
+    def __init__(self, element, namespace:str):
         super().__init__(element, namespace)
         self.set_id()
         self.set_text()
@@ -85,7 +90,7 @@ class ALTOLine(TextLine):
         strings = self.element.findall(f'{self.namespace}:String', XML_NS)
         self.text_words = [e.attrib['CONTENT'] for e in strings]
 
-    def get_shape(self, element):
+    def get_shape(self, element) -> List[Tuple]:
         x_1 = int(element.attrib['HPOS'])
         y_1 = int(element.attrib['VPOS'])
         y_2 = y_1 + int(element.attrib['HEIGHT'])
@@ -165,16 +170,15 @@ class PageLine(TextLine):
 
         # group clustering idiom
         points = list(zip(*[iter(numbers)] * 2))
-
         return np.array((points), dtype=np.uint32)
 
 
-def _determine_namespace(xml_data):
+def _determine_namespace(xml_data) -> List[str]:
     root_tag = xml_data.xpath('namespace-uri(.)')
     return [k for (k, v) in XML_NS.items() if v == root_tag][0]
 
 
-def coords_center(coord_tokens):
+def coords_center(coord_tokens) -> Tuple:
     """Get Point-Pairs from textual represented coordinates"""
     vals = [int(b)
             for a in map(lambda e: e.split(','), coord_tokens)
@@ -196,7 +200,7 @@ def to_center_coords(elem, namespace:str, vertical:bool=False):
     return None
 
 
-def get_lines(xml_data, min_len=2, reorder=False):
+def get_lines(xml_data, min_len:int=2, reorder:bool=False) -> List[TextLine]:
     """Create text_lines from OCR-Data"""
 
     _text_lines = []
@@ -210,7 +214,7 @@ def get_lines(xml_data, min_len=2, reorder=False):
     return [t for t in _text_lines if t.valid]
 
 
-def get_alto_lines(xml_data, ns_prefix:str, min_len:int):
+def get_alto_lines(xml_data, ns_prefix:str, min_len:int) -> List[ALTOLine]:
     """Extract lines from ALTO-formats
     """
     all_lines = xml_data.findall(f'.//{ns_prefix}:TextLine', XML_NS)
@@ -219,7 +223,7 @@ def get_alto_lines(xml_data, ns_prefix:str, min_len:int):
     return [ALTOLine(line, ns_prefix) for line in all_lines_len]
 
 
-def get_page_lines(xml_data, ns_prefix:str, min_len:int, reorder:bool):
+def get_page_lines(xml_data, ns_prefix:str, min_len:int, reorder:bool) -> List[PageLine]:
     """Extract lines from PAGE formats
     """
     all_lines = xml_data.findall(f'.//{ns_prefix}:TextLine', XML_NS)

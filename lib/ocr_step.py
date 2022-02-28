@@ -14,7 +14,14 @@ from collections import (
     OrderedDict
 )
 from typing import (
-    Dict
+    Dict,
+    List,
+    Tuple
+)
+
+from lib.ocr_model import (
+    get_lines,
+    TextLine
 )
 
 import lxml.etree as ET
@@ -354,7 +361,8 @@ class StepEstimateOCR(StepI):
         return True
 
     def execute(self):
-        self.lines = altolines2textlines(self.path_in)
+        xml_data = ET.parse(self.path_in)
+        self.lines = get_lines(xml_data)
         if len(self.lines) > 0:
             (word_string, n_lines, n_normed, n_sparse,
              n_dense) = textlines2data(self.lines)
@@ -435,24 +443,12 @@ class StepEstimateOCR(StepI):
             return (mean, bin_counts)
 
 
-def altolines2textlines(file_path):
-    """Convert ALTO Textlines to plain text lines"""
-
-    textnodes = ET.parse(file_path).findall('.//alto:TextLine', NAMESPACES)
-    lines = []
-    for textnode in textnodes:
-        all_strings = textnode.findall('.//alto:String', NAMESPACES)
-        words = [s.attrib['CONTENT']
-                 for s in all_strings if s.attrib['CONTENT'].strip()]
-        if words:
-            lines.append(' '.join(words))
-    return lines
-
-
-def textlines2data(lines, minlen=2):
+def textlines2data(lines: List[TextLine], minlen:int=2) -> Tuple:
     """Transform text lines after preprocessing into data set"""
 
-    non_empty_lines = [l for l in lines if l.strip()]
+    non_empty_lines = [l.get_textline_content()
+                       for l in lines 
+                       if len(l.get_textline_content()) > 0]
 
     (normalized_lines, n_normalized) = _sanitize_wraps(non_empty_lines)
     filtered_lines = _sanitize_chars(normalized_lines)

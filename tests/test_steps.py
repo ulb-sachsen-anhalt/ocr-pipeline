@@ -10,7 +10,7 @@ from unittest import (
     mock
 )
 
-import xml.etree.ElementTree as ET
+import lxml.etree as ET
 
 import requests
 
@@ -22,14 +22,13 @@ from lib.ocr_step import (
     StepTesseract,
     StepPostMoveAlto,
     StepPostReplaceChars,
-    # RegexReplacement,
     StepPostReplaceCharsRegex,
     StepPostRemoveFile,
     StepException,
     StepEstimateOCR,
     StepPostprocessALTO,
     textlines2data,
-    altolines2textlines,
+    get_lines,
 )
 
 PROJECT_ROOT_DIR = pathlib.Path(__file__).resolve().parents[1]
@@ -460,16 +459,14 @@ def test_step_estimateocr_textline_conversions():
 
     # act
     # pylint: disable=protected-access
-    lines = altolines2textlines(test_data)
+    xml_data = ET.parse(test_data)
+    lines = get_lines(xml_data)
     (_, n_lines, _, _, n_lines_out) = textlines2data(lines)
 
-    assert len(lines) == 370
-    assert n_lines == 370
+    assert n_lines == 360
     assert n_lines_out == 346
 
 # pylint: disable=unused-argument
-
-
 def _fixture_languagetool(*args):
     result = mock.Mock()
     result.status_code = 200

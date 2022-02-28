@@ -6,25 +6,12 @@ from functools import reduce
 
 import numpy as np
 
-
+# namespaces of different OCR-Formats
 XML_NS = {
     'alto3': 'http://www.loc.gov/standards/alto/ns-v3#',
     'alto4': 'http://www.loc.gov/standards/alto/ns-v4#',
     'page2013': 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2013-07-15',
     'page2019': 'http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15'}
-
-# default values
-DEFAULT_MIN_CHARS = 1
-DEFAULT_OUTDIR_PREFIX = 'training_data_'
-DEFAULT_USE_SUMMARY = False
-DEFAULT_USE_REORDER = False
-DEFAULT_DPI = 300
-DEFAULT_INTRUSION_RATIO = 0.1  # top 1/10 and bottom 1/10
-DEFAULT_ROTATION_THRESH = 0.1
-DEFAULT_BINARIZE = False
-DEFAULT_SANITIZE = True
-DEFAULT_PADDING = 0
-SUMMARY_SUFFIX = '_summary.gt.txt'
 
 # clear unwanted marks for single wordlike tokens
 CLEAR_MARKS = [
@@ -105,11 +92,6 @@ class ALTOLine(TextLine):
         x_2 = x_1 + int(element.attrib['WIDTH'])
         return [(x_1, y_1), (x_2, y_1), (x_2, y_2), (x_1, y_2)]
 
-    def get_next_element_height(self, element):
-        y_start = int(element.attrib['VPOS'])
-        y_height = int(element.attrib['HEIGHT'])
-        return y_start + y_height
-
 
 class PageLine(TextLine):
     """Extract TextLine Information from PAGE Data"""
@@ -134,13 +116,13 @@ class PageLine(TextLine):
 
         texts = []
         text_els = self.element.findall(f'{self.namespace}:Word', XML_NS)
-        for t in text_els:
-            top_left = to_center_coords(t, self.namespace, self.vertical)
+        for text_el in text_els:
+            top_left = to_center_coords(text_el, self.namespace, self.vertical)
             if not top_left:
-                elem_id = t.attrib['id']
+                elem_id = text_el.attrib['id']
                 msg = f"Invalid Coords of Word '{elem_id}' in '{self.element_id}'!"
                 raise RuntimeError(msg)
-            texts.append(t)
+            texts.append(text_el)
 
         # if no Word assume at least TextLine exists
         if not text_els:
@@ -193,13 +175,17 @@ def _determine_namespace(xml_data):
 
 
 def coords_center(coord_tokens):
-    """Calculate Shape center from textual represented coordinates data"""
-    vals = [int(b) for a in map(lambda e: e.split(','), coord_tokens) for b in a]
+    """Get Point-Pairs from textual represented coordinates"""
+    vals = [int(b)
+            for a in map(lambda e: e.split(','), coord_tokens)
+            for b in a]
     point_pairs = list(zip(*[iter(vals)]*2))
     return tuple(map(lambda c: sum(c) / len(c), zip(*point_pairs)))
 
 
-def to_center_coords(elem, namespace, vertical=False):
+def to_center_coords(elem, namespace:str, vertical:bool=False):
+    """Calculate center coords
+    """
     coords = elem.find(f'{namespace}:Coords', XML_NS)
     coord_tokens = coords.attrib['points'].split()
     if len(coord_tokens) > 0:
@@ -224,14 +210,18 @@ def get_lines(xml_data, min_len=2, reorder=False):
     return [t for t in _text_lines if t.valid]
 
 
-def get_alto_lines(xml_data, ns_prefix, min_len):
+def get_alto_lines(xml_data, ns_prefix:str, min_len:int):
+    """Extract lines from ALTO-formats
+    """
     all_lines = xml_data.findall(f'.//{ns_prefix}:TextLine', XML_NS)
     all_lines_len = [l for l in all_lines if len(' '.join(
         [s.attrib['CONTENT'] for s in l.findall(f'{ns_prefix}:String', XML_NS)])) >= min_len]
     return [ALTOLine(line, ns_prefix) for line in all_lines_len]
 
 
-def get_page_lines(xml_data, ns_prefix, min_len, reorder):
+def get_page_lines(xml_data, ns_prefix:str, min_len:int, reorder:bool):
+    """Extract lines from PAGE formats
+    """
     all_lines = xml_data.findall(f'.//{ns_prefix}:TextLine', XML_NS)
     matchings = []
     for textline in all_lines:
@@ -245,7 +235,7 @@ def get_page_lines(xml_data, ns_prefix, min_len, reorder):
             words = textline.findall(
                 f'{ns_prefix}:Word/{ns_prefix}:TextEquiv/{ns_prefix}:Unicode', XML_NS)
             if len(words):
-                base_path = xml_data.getroot().base if xml_data.getroot() else 'n.a.'
+                base_path = xml_data.getroot().base if xml_data.getroot() is not None else 'n.a.'
                 msg = f"{base_path}: just words for line '{textline.attrib['id']}'"
                 raise RuntimeError(msg)
     return [PageLine(line, ns_prefix, reorder) for line in matchings]

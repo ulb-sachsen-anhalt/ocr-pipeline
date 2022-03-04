@@ -481,7 +481,7 @@ def _fixture_languagetool(*args):
 
 
 @mock.patch("requests.post")
-def test_step_estimateocr_lines_and_tokens(mock_requests):
+def test_step_estimateocr_lines_and_tokens_err_ratio(mock_requests):
     """Test behavior of for valid ALTO-output"""
 
     # arrange
@@ -500,6 +500,41 @@ def test_step_estimateocr_lines_and_tokens(mock_requests):
 
     assert step.statistics
     assert mock_requests.called == 1
+    assert step.n_errs == 548
+    assert step.n_words == 2636
+    err_ratio = (step.n_errs / step.n_words) * 100
+    assert err_ratio == pytest.approx(20.789, rel=1e-3)
+
+
+@mock.patch("requests.post")
+def test_step_estimateocr_lines_and_tokens_hit_ratio(mock_requests):
+    """Test behavior of for valid ALTO-output"""
+
+    # arrange
+    test_data = os.path.join(PROJECT_ROOT_DIR,
+                             'tests', 'resources', '500_gray00003.xml')
+    mock_requests.side_effect = _fixture_languagetool
+    params = {'service_url': 'http://localhost:8010/v2/check',
+              'language': 'de-DE',
+              'enabled_rules': 'GERMAN_SPELLER_RULE'
+              }
+    step = StepEstimateOCR(params)
+    step.path_in = test_data
+
+    # act
+    step.execute()
+
+    assert mock_requests.called == 1
+    err_ratio = (step.n_errs / step.n_words) * 100
+    assert err_ratio == pytest.approx(20.789, rel=1e-3)
+
+    # revert metric to represent hits
+    # to hit into positive compliance
+    hits = (step.n_words - step.n_errs) / step.n_words * 100
+    assert hits == pytest.approx(79.21, rel=1e-3)
+
+    # holds this condition?
+    assert hits == pytest.approx(100 - err_ratio, rel=1e-9)
 
 
 @mock.patch("requests.get")

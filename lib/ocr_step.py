@@ -336,7 +336,7 @@ class StepEstimateOCR(StepI):
         self.lang = params.get('language', DEFAULT_LANGTOOL_LANG)
         self.rules = params.get('enabled_rules', DEFAULT_LANGTOOL_RULE)
         self.lines = []
-        self.wer = -1.0
+        self.hit_ratio = -1.0
         self.n_words = 0
         self.n_errs = 0
         self.n_lines_in = 0
@@ -396,15 +396,15 @@ class StepEstimateOCR(StepI):
         if typo_errors > self.n_words:
             typo_errors = self.n_words
 
-        coef = typo_errors / self.n_words * 100
         self.n_errs = typo_errors
-        self.wer = round(coef, 3)
+        ratio = (self.n_words / typo_errors) / self.n_words * 100
+        self.hit_ratio = round(ratio, 3)
 
     @property
     def statistics(self):
         """Retrive Estimation Details"""
 
-        return (self.wer,
+        return (self.hit_ratio,
                 self.n_words,
                 self.n_errs,
                 self.n_lines_in,

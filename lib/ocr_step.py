@@ -397,7 +397,10 @@ class StepEstimateOCR(StepI):
             typo_errors = self.n_words
 
         self.n_errs = typo_errors
-        ratio = (self.n_words / typo_errors) / self.n_words * 100
+        if self.n_words <= typo_errors:
+            ratio = 0
+        else:
+            ratio = (self.n_words - typo_errors) / self.n_words * 100
         self.hit_ratio = round(ratio, 3)
 
     @property

@@ -502,8 +502,7 @@ def test_step_estimateocr_lines_and_tokens_err_ratio(mock_requests):
     assert mock_requests.called == 1
     assert step.n_errs == 548
     assert step.n_words == 2636
-    err_ratio = (step.n_errs / step.n_words) * 100
-    assert err_ratio == pytest.approx(20.789, rel=1e-3)
+    assert step.statistics[0] == pytest.approx(79.211, rel=1e-3)
 
 
 @mock.patch("requests.post")

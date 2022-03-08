@@ -507,35 +507,67 @@ def _sanitize_chars(lines):
 
 
 class StepPostprocessALTO(StepIO):
-    """Postprocess ALTO XML"""
+    """Postprocess ALTO XML
+    optional params
+    * 'page_prefix' : prefix which will be preponed to the Page@ID-attribute
+      if not set, use 'p'
+    """
 
     def __init__(self, params=None):
         super().__init__()
         self.params = params
 
     def execute(self):
+        """All enrichment assumes there's only a single Page present
+        within the whole ALTO file, thus any text content or
+        attribute values *always* target the very first
+        * sourceImageInformation/fileName
+        * Layout/Page
+        """
 
         xml_root = ET.parse(self.path_in)
+        the_ns = re.match(r'^\{(.*)\}\w+', xml_root.getroot().tag)[1]
 
         # enrich sourceImageInformation/fileIdentifier
         file_name = os.path.basename(self.path_in)
-        source_infos = xml_root.findall(
-            './/alto:sourceImageInformation', NAMESPACES)
+        file_id = file_name.split('.')[0]
+        alto_descr = xml_root.findall('.//alto:Description', NAMESPACES)[0]
+        source_infos = alto_descr.findall('.//alto:sourceImageInformation', NAMESPACES)
         if source_infos:
-            file_id = source_infos[0].find('alto:fileIdentifier', NAMESPACES)
-            if not file_id:
-                file_id = file_name.split('.')[0]
-                ET.SubElement(
-                    source_infos[0],
-                    '{}fileIdentifier').text = file_id
-            _file_names = source_infos[0].findall('alto:fileName', NAMESPACES)
-            if _file_names:
-                _file_names[0].text = file_name
+            StepPostprocessALTO._append_source_infos(source_infos[0], file_name, the_ns)
+        else:
+            source_info = ET.SubElement(alto_descr,
+                f'{{{the_ns}}}sourceImageInformation')
+            StepPostprocessALTO._append_source_infos(source_info, file_name, the_ns)
+        # enrich Page@ID for only *first* page
+        first_page = xml_root.findall('.//alto:Layout/alto:Page', NAMESPACES)[0]
+        prefix = self.params['page_prefix'] if self.params and 'page_prefix' in self.params else 'p'
+        expected_id = f'{prefix}{file_id}'
+        if first_page.attrib['ID'] != expected_id:
+            first_page.attrib['ID'] = expected_id
 
         # remove empty sections
         drop_empty_contents(xml_root)
 
         write_xml_file(xml_root, self.path_in)
+
+    @staticmethod
+    def _append_source_infos(descr_tree, file_name, namespace):
+        # fileIdentifier required
+        file_id = file_name.split('.')[0]
+        alto_file_id = descr_tree.find('alto:fileIdentifier', NAMESPACES)
+        if not alto_file_id:
+            ET.SubElement(descr_tree,
+                f'{{{namespace}}}fileIdentifier').text = file_id
+        else:
+            alto_file_id.text = file_id
+        # enrich file_name, too
+        _file_names = descr_tree.findall('alto:fileName', NAMESPACES)
+        if not _file_names:
+            ET.SubElement(descr_tree,
+                f'{{{namespace}}}fileName').text = file_name
+        else:
+            _file_names[0].text = file_name
 
 
 def drop_empty_contents(xml_root):

@@ -478,7 +478,7 @@ def _fixture_languagetool(*args):
 
 
 @mock.patch("requests.post")
-def test_step_estimateocr_lines_and_tokens(mock_requests):
+def test_step_estimateocr_lines_and_tokens_err_ratio(mock_requests):
     """Test behavior of for valid ALTO-output"""
 
     # arrange
@@ -497,6 +497,40 @@ def test_step_estimateocr_lines_and_tokens(mock_requests):
 
     assert step.statistics
     assert mock_requests.called == 1
+    assert step.n_errs == 548
+    assert step.n_words == 2636
+    assert step.statistics[0] == pytest.approx(79.211, rel=1e-3)
+
+
+@mock.patch("requests.post")
+def test_step_estimateocr_lines_and_tokens_hit_ratio(mock_requests):
+    """Test behavior of for valid ALTO-output"""
+
+    # arrange
+    test_data = os.path.join(PROJECT_ROOT_DIR,
+                             'tests', 'resources', '500_gray00003.xml')
+    mock_requests.side_effect = _fixture_languagetool
+    params = {'service_url': 'http://localhost:8010/v2/check',
+              'language': 'de-DE',
+              'enabled_rules': 'GERMAN_SPELLER_RULE'
+              }
+    step = StepEstimateOCR(params)
+    step.path_in = test_data
+
+    # act
+    step.execute()
+
+    assert mock_requests.called == 1
+    err_ratio = (step.n_errs / step.n_words) * 100
+    assert err_ratio == pytest.approx(20.789, rel=1e-3)
+
+    # revert metric to represent hits
+    # to hit into positive compliance
+    hits = (step.n_words - step.n_errs) / step.n_words * 100
+    assert hits == pytest.approx(79.21, rel=1e-3)
+
+    # holds this condition?
+    assert hits == pytest.approx(100 - err_ratio, rel=1e-9)
 
 
 @mock.patch("requests.get")
@@ -524,30 +558,42 @@ def test_stepestimate_invalid_data(mock_request):
     assert not mock_request.called
 
 
-def test_clear_empty_content(tmp_path):
-    """Ensure no more empty Strings exist"""
-
+@pytest.fixture(name="altov4_xml")
+def _fixture_altov4(tmp_path):
     test_data = os.path.join('tests', 'resources', '16331011.xml')
     prev_root = ET.parse(test_data).getroot()
     prev_strings = prev_root.findall('.//alto:String', NAMESPACES)
     assert len(prev_strings) == 275
     dst_path = tmp_path / "16331011.xml"
     shutil.copy(test_data, dst_path)
+
+    # act within a fixture
     step = StepPostprocessALTO()
     step.path_in = dst_path
-
-    # act
     step.execute()
 
-    # assert
-    xml_root = ET.parse(dst_path).getroot()
-    all_strings = xml_root.findall('.//alto:String', NAMESPACES)
-    # assert about 20 Strings have been dropped due emptyness
+    yield ET.parse(dst_path).getroot()
+
+
+def test_clear_empty_content(altov4_xml):
+    """Ensure no more empty Strings exist"""
+
+    all_strings = altov4_xml.findall('.//alto:String', NAMESPACES)
+    # assert about 20 Strings (from 275, cf. fixture)
+    # have been dropped due emptyness
     assert len(all_strings) == 254
-    assert xml_root.find(
-        './/alto:fileIdentifier',
-        NAMESPACES).text == '16331011'
-    assert xml_root.find('.//alto:fileName', NAMESPACES).text == '16331011.xml'
+
+
+def test_process_alto_file_identifier_set(altov4_xml):
+    """Ensure expected fileIdentifier present
+    """
+    assert altov4_xml.find('.//alto:fileIdentifier',NAMESPACES).text == '16331011'
+
+
+def test_process_alto_filename_set(altov4_xml):
+    """Ensure expected fileName present
+    """
+    assert altov4_xml.find('.//alto:fileName', NAMESPACES).text == '16331011.xml'
 
 
 def test_clear_empty_lines_with_spatiums(tmp_path):
@@ -579,3 +625,40 @@ def test_clear_empty_lines_with_spatiums(tmp_path):
         './/alto:fileIdentifier',
         NAMESPACES).text == '16331001'
     assert xml_root.find('.//alto:fileName', NAMESPACES).text == '16331001.xml'
+
+
+@pytest.fixture(name="pipeline_odem_xml")
+def _fixture_pipeline_odem_xml(tmp_path):
+    test_data = os.path.join('tests', 'resources', 'urn+nbn+de+gbv+3+1-121915-p0159-6_ger.xml')
+    dst_path = tmp_path / "urn+nbn+de+gbv+3+1-121915-p0159-6_ger.xml"
+    shutil.copy(test_data, dst_path)
+
+    # act within a fixture
+    step = StepPostprocessALTO({'page_prefix':''})
+    step.path_in = dst_path
+    step.execute()
+
+    yield ET.parse(dst_path).getroot()
+
+
+def test_process_odem_result_identifier_set(pipeline_odem_xml):
+    """Ensure expected fileIdentifier present
+    """
+    file_ident = pipeline_odem_xml.find('.//alto:fileIdentifier',NAMESPACES)
+    assert file_ident is not None
+    assert file_ident.text == 'urn+nbn+de+gbv+3+1-121915-p0159-6_ger'
+
+
+def test_process_odem_filename_set(pipeline_odem_xml):
+    """Ensure expected fileName present
+    """
+    txt_filename = pipeline_odem_xml.find('.//alto:fileName', NAMESPACES)
+    assert txt_filename is not None
+    assert txt_filename.text == 'urn+nbn+de+gbv+3+1-121915-p0159-6_ger.xml'
+
+
+def test_process_odem_page_id(pipeline_odem_xml):
+    """Ensure expected fileName present
+    """
+    page_id = pipeline_odem_xml.find('.//alto:Page', NAMESPACES).attrib['ID']
+    assert page_id == 'urn+nbn+de+gbv+3+1-121915-p0159-6_ger'

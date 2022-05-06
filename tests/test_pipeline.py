@@ -67,8 +67,8 @@ def test_ocr_pipeline_default_config(default_pipeline):
     assert pipeline.cfg.get('pipeline', 'executors') == '8'
     assert pipeline.cfg.get('pipeline', 'logger_name') == 'ocr_pipeline'
     assert pipeline.cfg.get('pipeline', 'file_ext') == 'tif,jpg,png,jpeg'
-    assert pipeline.cfg.get('step_03', 'language') == 'de-DE'
-    assert pipeline.cfg.get('step_03', 'enabled_rules') == 'GERMAN_SPELLER_RULE'
+    assert pipeline.cfg.get('step_04', 'language') == 'de-DE'
+    assert pipeline.cfg.get('step_04', 'enabled_rules') == 'GERMAN_SPELLER_RULE'
 
 
 def test_ocr_pipeline_default_logging(default_pipeline, caplog):

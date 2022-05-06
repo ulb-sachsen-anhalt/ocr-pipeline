@@ -419,15 +419,18 @@ def _execute_pipeline(*args):
                              file_name, batch_label, len(the_steps))
         return outcome
 
-    except StepException:
+    # if a single step-based images crashes, we will go on anyway
+    except StepException as exc:
         pipeline.logger.error(
             "[%s] %s: %s",
             start_path,
             step,
-            traceback.format_exc())
-        sys.exit(1)
+            exc.args[0])
+    # OSError means something really severe, like 
+    # non-existing resources/connections that will harm 
+    # all images in pipeline, therefore signal halt
     except OSError as os_exc:
-        pipeline.logger.error(
+        pipeline.logger.critical(
             "[%s] %s: %s",
             start_path,
             step,

@@ -364,26 +364,25 @@ class StepEstimateOCR(StepI):
         xml_data = ET.parse(self.path_in)
         self.lines = get_lines(xml_data)
         if len(self.lines) > 0:
-            (word_string, n_lines, n_normed, n_sparse,
-             n_dense) = textlines2data(self.lines)
-            if word_string:
-                self.n_lines_in = n_lines
-                self.n_shorts = n_sparse
-                self.n_wraps = n_normed
-                self.n_lines_out = n_dense
-                self.n_words = len(word_string.split())
-
-                params = {'language': self.lang,
-                          'text': word_string,
-                          'enabledRules': self.rules,
-                          'enabledOnly': 'true'}
-                try:
+            try:
+                (word_string, n_lines, n_normed, n_sparse,
+                n_dense) = textlines2data(self.lines)
+                if word_string:
+                    self.n_lines_in = n_lines
+                    self.n_shorts = n_sparse
+                    self.n_wraps = n_normed
+                    self.n_lines_out = n_dense
+                    self.n_words = len(word_string.split())
+                    params = {'language': self.lang,
+                            'text': word_string,
+                            'enabledRules': self.rules,
+                            'enabledOnly': 'true'}
                     response_data = self.request_data(params)
                     self.postprocess_response(response_data)
-                except ConnectionError as exc:
-                    raise StepException(f"Invalid connection: {exc}") from exc
-                except Exception:
-                    raise StepException(f"Invalid data: {sys.exc_info()[0]}")
+            except ConnectionError as exc:
+                raise OSError(exc.args[0]) from exc
+            except RuntimeError as exc:
+                raise StepException(exc.args[0]) from exc
 
     def request_data(self, params):
         """Get word errors for text from webservice"""
@@ -470,14 +469,22 @@ def textlines2data(lines: List[TextLine], minlen:int=2) -> Tuple:
 
 
 def _sanitize_wraps(lines):
-    """Sanitize word wraps if last word token ends with '-' and another line following"""
+    """Sanitize word wraps if 
+    * last word token ends with '-' 
+    * another line following
+    * following line not empty
+    """
 
     normalized = []
     n_normalized = 0
     for i, line in enumerate(lines):
         if i < len(lines) - 1 and line.endswith("-"):
-            next_line_tokens = lines[i + 1].split()
+            next_line = lines[i + 1]
+            if not next_line.strip():
+                raise RuntimeError(f"cant sanitize '{lines[i]} with empty next_line")
+            next_line_tokens = next_line.split()
             nextline_first_token = next_line_tokens.pop(0)
+            # join the rest of valid next line
             lines[i + 1] = ' '.join(next_line_tokens)
             line = line[:-1] + nextline_first_token
             n_normalized += 1

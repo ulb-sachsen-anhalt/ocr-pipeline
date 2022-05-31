@@ -1,4 +1,4 @@
-autopep8>=1.5.0
-flake8>=3.8.0
-pylint>=2.6.0
-pytest-cov>=2.9.0
+autopep8
+flake8
+pylint
+pytest-cov

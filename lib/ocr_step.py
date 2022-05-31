@@ -480,8 +480,9 @@ def _sanitize_wraps(lines):
     for i, line in enumerate(lines):
         if i < len(lines) - 1 and line.endswith("-"):
             next_line = lines[i + 1]
-            if not next_line.strip():
-                raise RuntimeError(f"cant sanitize '{lines[i]} with empty next_line")
+            if len(next_line.strip()) == 0:
+                # encountered empty next line, no merge possible
+                continue
             next_line_tokens = next_line.split()
             nextline_first_token = next_line_tokens.pop(0)
             # join the rest of valid next line

@@ -12,7 +12,6 @@ import pathlib
 import sys
 import tempfile
 import time
-import traceback
 
 # pylint: disable=unused-import
 # import statement *is_REALLY* necessary
@@ -426,8 +425,8 @@ def _execute_pipeline(*args):
             start_path,
             step,
             exc.args[0])
-    # OSError means something really severe, like 
-    # non-existing resources/connections that will harm 
+    # OSError means something really severe, like
+    # non-existing resources/connections that will harm
     # all images in pipeline, therefore signal halt
     except OSError as os_exc:
         pipeline.logger.critical(
@@ -486,7 +485,7 @@ if __name__ == '__main__':
     ARGS = vars(APP_ARGUMENTS.parse_args())
 
     DATA_PATH = ARGS["data_path"]
-    if not "," in DATA_PATH and not os.path.isdir(DATA_PATH):
+    if "," not in DATA_PATH and not os.path.isdir(DATA_PATH):
         print(
             f"[ERROR] data_path path '{DATA_PATH}' invalid!", file=sys.stderr)
         sys.exit(1)
@@ -514,7 +513,7 @@ if __name__ == '__main__':
         with concurrent.futures.ProcessPoolExecutor(max_workers=EXECUTORS) as executor:
             RESULTS = list(executor.map(_execute_pipeline, INPUT_NUMBERED))
             pipeline.logger.info("having %d workflow results", len(RESULTS))
-            estimations = [r for r in RESULTS if r[1] > MARK_MISSING_ESTM]
+            estimations = [r for r in RESULTS if r is not None and r[1] > MARK_MISSING_ESTM]
             if estimations:
                 pipeline.store_estimations(estimations)
             else:

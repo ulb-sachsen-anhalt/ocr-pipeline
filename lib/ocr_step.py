@@ -19,15 +19,15 @@ from typing import (
     Tuple
 )
 
+# 3rd party imports
+import lxml.etree as ET
+import requests
+
+# custom imports
 from lib.ocr_model import (
     get_lines,
     TextLine
 )
-
-import lxml.etree as ET
-
-# 3rd party import
-import requests
 
 
 NAMESPACES = {'alto': 'http://www.loc.gov/standards/alto/ns-v3#'}
@@ -223,7 +223,7 @@ class StepPostReplaceChars(StepIO):
         return str(self._must_backup).upper() == 'TRUE'
 
     def execute(self):
-        file_handle = open(self.path_in, 'r')
+        file_handle = open(self.path_in, 'r', encoding='utf-8')
         lines = file_handle.readlines()
         file_handle.close()
         self._replace(lines)
@@ -231,7 +231,7 @@ class StepPostReplaceChars(StepIO):
         # if replacements are done, backup original file
         if self._replacements and self.must_backup():
             self._backup()
-        fhandle = open(self.path_in, 'w')
+        fhandle = open(self.path_in, 'w', encoding='utf-8')
         _ = [fhandle.write(line) for line in self.lines_new]
         fhandle.close()
 
@@ -438,7 +438,7 @@ class StepEstimateOCR(StepI):
 
             for result in results:
                 target_bin = round(result[1] // step_bin)
-                if not target_bin < bins:
+                if target_bin >= bins:
                     target_bin = bins - 1
                 bin_counts[target_bin].append(result)
 
@@ -449,7 +449,7 @@ def textlines2data(lines: List[TextLine], minlen:int=2) -> Tuple:
     """Transform text lines after preprocessing into data set"""
 
     non_empty_lines = [l.get_textline_content()
-                       for l in lines 
+                       for l in lines
                        if len(l.get_textline_content()) > 0]
 
     (normalized_lines, n_normalized) = _sanitize_wraps(non_empty_lines)
@@ -469,8 +469,8 @@ def textlines2data(lines: List[TextLine], minlen:int=2) -> Tuple:
 
 
 def _sanitize_wraps(lines):
-    """Sanitize word wraps if 
-    * last word token ends with '-' 
+    """Sanitize word wraps if
+    * last word token ends with '-'
     * another line following
     * following line not empty
     """
@@ -499,7 +499,7 @@ def _sanitize_chars(lines):
     for line in lines:
         text = line.strip()
         bad_chars = '0123456789“„"\'?!*.;:-=[]()|'
-        text = ''.join([c for c in text if not c in bad_chars])
+        text = ''.join([c for c in text if c not in bad_chars])
         if '..' in text:
             text = text.replace('..', '')
         if '  ' in text:

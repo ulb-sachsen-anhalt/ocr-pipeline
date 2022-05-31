@@ -225,7 +225,7 @@ def test_step_replace():
 
     # assert
     assert len(step.lines_new) == 3
-    assert not 'iſt.' in step.lines_new[1]
+    assert 'iſt.' not in step.lines_new[1]
     assert 'ist.' in step.lines_new[1]
     assert step.must_backup()
 
@@ -323,10 +323,10 @@ def test_regex_replacements(tmp_500_gray):
     # assert
     assert not os.path.exists(os.path.join(os.path.dirname(str(tmp_500_gray)),
                                            'input_before_StepPostReplaceChars.xml'))
-    with open(str(tmp_500_gray)) as test_handle:
+    with open(str(tmp_500_gray), encoding='utf-8') as test_handle:
         lines = test_handle.readlines()
         for line in lines:
-            assert not 'u3"' in line, 'detected trailing "3" in ' + line
+            assert 'u3"' not in line, 'detected trailing "3" in ' + line
 
     expected = ['a3"=>as":5',
                 'u3"=>us":1',

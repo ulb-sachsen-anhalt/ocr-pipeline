@@ -1,4 +1,4 @@
-FROM ubuntu:18.04
+FROM ubuntu:22.04
 
 # set proper locales
 ENV LANG C.UTF-8

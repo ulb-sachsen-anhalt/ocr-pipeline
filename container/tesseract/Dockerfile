@@ -33,7 +33,9 @@ RUN apt-get update && apt-get install -y \
 	tzdata \
 	xzgv \
 	zlib1g-dev \
-	libleptonica-dev
+	libleptonica-dev \
+	libpango1.0-dev \
+	libicu-dev
 
 # set proper date and timezone in container
 RUN echo "Europe/Berlin" > /etc/timezone

@@ -19,7 +19,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 # tzdata required for proper timezone settings
 RUN apt-get update && apt-get install -y \
 	apt-utils \
-	automake \
+	build-essential \
 	g++ \
 	git \
 	libjpeg-dev \

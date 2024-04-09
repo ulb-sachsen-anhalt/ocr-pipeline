@@ -351,9 +351,8 @@ class StepEstimateOCR(StepI):
         self.n_shorts = 0
         self.n_lines_out = 0
 
-    def is_available(self):
+    def enabled(self):
         """Connection established ?"""
-
         try:
             requests.head(self.service_url)
         except requests.ConnectionError:
@@ -361,6 +360,8 @@ class StepEstimateOCR(StepI):
         return True
 
     def execute(self):
+        if not self.enabled():
+            return
         xml_data = ET.parse(self.path_in)
         self.lines = get_lines(xml_data)
         if len(self.lines) > 0:

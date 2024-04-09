@@ -439,17 +439,22 @@ def test_step_estimateocr_empty_alto(empty_ocr):
 
 
 @mock.patch("requests.head")
-def test_service_down(mock_requests):
+def test_service_down(mock_head):
     """Determine Behavior when url not accessible"""
 
     # arrange
     params = {'service_url': 'http://localhost:8010/v2/check'}
     step = StepEstimateOCR(params)
-    mock_requests.side_effect = requests.ConnectionError
+    mock_head.side_effect = requests.ConnectionError
+
+    # act
+    step.execute()
 
     # assert
-    assert not step.is_available()
-    assert mock_requests.called == 1
+    assert mock_head.called == 1
+    assert not step.enabled()
+    assert step.hit_ratio == -1
+    assert step.statistics[0] == -1
 
 
 def test_step_estimateocr_textline_conversions():

@@ -401,7 +401,11 @@ def _execute_pipeline(*args):
             # log current step
             if hasattr(step, 'statistics') and len(step.statistics) > 0:
                 if profile_result and isinstance(step, StepEstimateOCR):
-                    outcome = (file_name,) + step.statistics
+                    _qa_step: StepEstimateOCR = step
+                    if not _qa_step.enabled():
+                        pipeline.logger.warning("[%s] %s configured but disabled",
+                                                file_name, _qa_step.__class__.__name__)
+                    outcome = (file_name,) + _qa_step.statistics
                 pipeline.logger.info("[%s] %s, statistics: %s",
                                       file_name, profile_result,
                                       str(step.statistics))

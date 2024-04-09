@@ -482,14 +482,16 @@ def _fixture_languagetool(*args):
     return result
 
 
+@mock.patch("lib.ocr_step.StepEstimateOCR.enabled")
 @mock.patch("requests.post")
-def test_step_estimateocr_lines_and_tokens_err_ratio(mock_requests):
+def test_step_estimateocr_lines_and_tokens_err_ratio(mock_post, mock_enabled):
     """Test behavior of for valid ALTO-output"""
 
     # arrange
     test_data = os.path.join(PROJECT_ROOT_DIR,
                              'tests', 'resources', '500_gray00003.xml')
-    mock_requests.side_effect = _fixture_languagetool
+    mock_post.side_effect = _fixture_languagetool
+    mock_enabled.return_value = True
     params = {'service_url': 'http://localhost:8010/v2/check',
               'language': 'de-DE',
               'enabled_rules': 'GERMAN_SPELLER_RULE'
@@ -501,20 +503,23 @@ def test_step_estimateocr_lines_and_tokens_err_ratio(mock_requests):
     step.execute()
 
     assert step.statistics
-    assert mock_requests.called == 1
+    assert mock_enabled.called == 1
+    assert mock_post.called == 1
     assert step.n_errs == 548
     assert step.n_words == 2636
     assert step.statistics[0] == pytest.approx(79.211, rel=1e-3)
 
 
+@mock.patch("lib.ocr_step.StepEstimateOCR.enabled")
 @mock.patch("requests.post")
-def test_step_estimateocr_lines_and_tokens_hit_ratio(mock_requests):
+def test_step_estimateocr_lines_and_tokens_hit_ratio(mock_post, mock_enabled):
     """Test behavior of for valid ALTO-output"""
 
     # arrange
     test_data = os.path.join(PROJECT_ROOT_DIR,
                              'tests', 'resources', '500_gray00003.xml')
-    mock_requests.side_effect = _fixture_languagetool
+    mock_post.side_effect = _fixture_languagetool
+    mock_enabled.return_value = True
     params = {'service_url': 'http://localhost:8010/v2/check',
               'language': 'de-DE',
               'enabled_rules': 'GERMAN_SPELLER_RULE'
@@ -525,7 +530,8 @@ def test_step_estimateocr_lines_and_tokens_hit_ratio(mock_requests):
     # act
     step.execute()
 
-    assert mock_requests.called == 1
+    assert mock_enabled.called == 1
+    assert mock_post.called == 1
     err_ratio = (step.n_errs / step.n_words) * 100
     assert err_ratio == pytest.approx(20.789, rel=1e-3)
 
